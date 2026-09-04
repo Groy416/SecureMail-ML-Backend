@@ -1,0 +1,34 @@
+services:
+  mail-lab:
+    build: .
+    command: ["/app/entrypoint.sh"]
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      PCAP_PATH: ${PCAP_PATH:-/captures/capture.pcap}
+      RUNTIME_PROFILE_PATH: /captures/runtime_profile.json
+    volumes:
+      - ${LAB_RUN_DIR:-./captures}:/captures
+    networks: [mail_lab]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 2525), 2).close()"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  client:
+    build: .
+    command: ["python", "/app/client.py"]
+    depends_on:
+      mail-lab:
+        condition: service_healthy
+    environment:
+      RUNTIME_PROFILE_PATH: /captures/runtime_profile.json
+    volumes:
+      - ${LAB_RUN_DIR:-./captures}:/captures
+    networks: [mail_lab]
+
+networks:
+  mail_lab:
+    internal: true

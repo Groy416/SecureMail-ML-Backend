@@ -1,0 +1,100 @@
+{
+  "limitations": [
+    "Ablations use only synthetic data and are not production-performance claims.",
+    "Learned stacking is disabled until grouped out-of-fold normal-baseline coverage exists."
+  ],
+  "version": "feature-ablation.v1",
+  "views": {
+    "certificate": {
+      "bundle_id": "ml-bundle.v1.aabe125b923dbe95",
+      "fusion": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.024096385542168676
+      },
+      "isolation_forest": {
+        "f1": null,
+        "false_positive_rate": null
+      },
+      "random_forest": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.2619047619047619
+      },
+      "source_features": [
+        "cert_present",
+        "cert_valid",
+        "cert_expired",
+        "cert_expires_in_days",
+        "cert_chain_valid",
+        "hostname_mismatch",
+        "cert_key_algorithm",
+        "cert_key_length_bits",
+        "cert_signature_algorithm"
+      ],
+      "xgboost": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.2619047619047619
+      }
+    },
+    "protocol_session": {
+      "bundle_id": "ml-bundle.v1.aa1b8b114e9d693f",
+      "fusion": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.05756643356643356
+      },
+      "isolation_forest": {
+        "f1": 0.17857142857142858,
+        "false_positive_rate": 0.045454545454545456
+      },
+      "random_forest": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.19288537549407114
+      },
+      "source_features": [
+        "protocol",
+        "src_port",
+        "dst_port",
+        "starttls_advertised",
+        "starttls_used",
+        "handshake_success",
+        "handshake_failures",
+        "renegotiation_count",
+        "session_duration_seconds",
+        "packet_count",
+        "byte_count",
+        "retransmission_count",
+        "out_of_order_count"
+      ],
+      "xgboost": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.15360000000000001
+      }
+    },
+    "tls": {
+      "bundle_id": "ml-bundle.v1.5124277057383c02",
+      "fusion": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.024096385542168676
+      },
+      "isolation_forest": {
+        "f1": null,
+        "false_positive_rate": null
+      },
+      "random_forest": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.15625
+      },
+      "source_features": [
+        "tls_version",
+        "cipher_suite",
+        "cipher_family",
+        "key_exchange",
+        "signature_algorithm",
+        "forward_secrecy"
+      ],
+      "xgboost": {
+        "critical_recall": 0.0,
+        "macro_f1": 0.17316017316017315
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+# Python environments, bytecode, and test/tool caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Generated ML artifacts
+models/
+datasets/runs/
+graphify-out/
+*.joblib
+
+# Lab captures and packet/key material
+datasets/lab/captures/
+datasets/lab/runs/
+*.pcap
+*.pcapng
+*.keylog
+*.keys
+
+# Operating-system files
+.DS_Store
