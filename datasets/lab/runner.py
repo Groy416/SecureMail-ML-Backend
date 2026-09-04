@@ -228,6 +228,24 @@ def assemble_successful_runs(
     )
 
 
+def build_training_matrix(master_seed: int) -> tuple[LabRuntimeProfile, ...]:
+    scenario_ids = (
+        ("normal_tls13_valid", "certificate_expiry_advisory", "unusual_cipher_negotiation", "hostname_mismatch", "deprecated_tls"),
+        ("normal_tls12_valid", "certificate_expiry_warning", "unusual_cipher_negotiation", "invalid_certificate_chain", "weak_cipher"),
+        ("starttls_used_successfully", "certificate_expires_soon", "uncommon_chacha20_negotiation", "starttls_advertised_unused", "deprecated_tls"),
+    )
+    protocols = (Protocol.SMTP, Protocol.IMAP, Protocol.POP3)
+    profiles = []
+    for environment_index, scenarios in enumerate(scenario_ids):
+        environment_id = ("lab_train", "lab_calibration", "lab_test")[environment_index]
+        for scenario_index, scenario_id in enumerate(scenarios):
+            profiles.append(resolve_runtime_profile(
+                _catalog_manifest(scenario_id), protocols[(environment_index + scenario_index) % 3],
+                environment_id, master_seed, environment_index, connection_count=334,
+            ))
+    return tuple(profiles)
+
+
 def _catalog_manifest(scenario_id: str) -> ScenarioManifest:
     for item in CATALOG:
         if item["manifest"]["scenario_id"] == scenario_id:

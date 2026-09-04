@@ -1,0 +1,287 @@
+{
+  "calibration_version": "calibration.v2",
+  "classifiers": {
+    "random_forest": {
+      "confusion_matrix": [
+        [
+          334,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          334,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          334,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          334,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          333,
+          1
+        ]
+      ],
+      "critical_precision": 1.0,
+      "critical_recall": 0.0029940119760479044,
+      "macro_f1": 0.26786069651741296,
+      "multiclass_brier_score": 0.6049773137085915,
+      "per_class": {
+        "critical": {
+          "f1": 0.005970149253731343,
+          "pr_auc": 0.9999999999999999,
+          "precision": 1.0,
+          "recall": 0.0029940119760479044,
+          "roc_auc": 1.0,
+          "support": 334
+        },
+        "high": {
+          "f1": 0.0,
+          "pr_auc": 0.5007496251874063,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.750748502994012,
+          "support": 334
+        },
+        "informational": {
+          "f1": 0.6666666666666666,
+          "pr_auc": 0.490462586277826,
+          "precision": 0.5,
+          "recall": 1.0,
+          "roc_auc": 0.8701347305389222,
+          "support": 334
+        },
+        "low": {
+          "f1": 0.0,
+          "pr_auc": 0.2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.5,
+          "support": 334
+        },
+        "medium": {
+          "f1": 0.6666666666666666,
+          "pr_auc": 1.0,
+          "precision": 0.5,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 334
+        }
+      },
+      "weighted_f1": 0.2678606965174129
+    },
+    "xgboost": {
+      "confusion_matrix": [
+        [
+          0,
+          334,
+          0,
+          0,
+          0
+        ],
+        [
+          334,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          334,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          334,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          333,
+          0
+        ]
+      ],
+      "critical_precision": 0.0,
+      "critical_recall": 0.0,
+      "macro_f1": 0.0,
+      "multiclass_brier_score": 1.3614606180786968,
+      "per_class": {
+        "critical": {
+          "f1": 0.0,
+          "pr_auc": 0.2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.5,
+          "support": 334
+        },
+        "high": {
+          "f1": 0.0,
+          "pr_auc": 0.23104025039737525,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.33507610527448095,
+          "support": 334
+        },
+        "informational": {
+          "f1": 0.0,
+          "pr_auc": 0.2281790863073419,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.48977419412671663,
+          "support": 334
+        },
+        "low": {
+          "f1": 0.0,
+          "pr_auc": 0.21202585788494854,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.4880239520958084,
+          "support": 334
+        },
+        "medium": {
+          "f1": 0.0,
+          "pr_auc": 0.2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.25074850299401197,
+          "support": 334
+        }
+      },
+      "weighted_f1": 0.0
+    }
+  },
+  "fusion": {
+    "confusion_matrix": [
+      [
+        0,
+        333,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        334,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        223,
+        111,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        334,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        333,
+        0
+      ]
+    ],
+    "critical_precision": 0.0,
+    "critical_recall": 0.0,
+    "macro_f1": 0.1660005188588453,
+    "per_class": {
+      "critical": {
+        "f1": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "support": 334
+      },
+      "high": {
+        "f1": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "support": 334
+      },
+      "informational": {
+        "f1": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "support": 334
+      },
+      "low": {
+        "f1": 0.545751633986928,
+        "precision": 0.3752808988764045,
+        "recall": 1.0,
+        "support": 334
+      },
+      "medium": {
+        "f1": 0.28425096030729835,
+        "precision": 0.2483221476510067,
+        "recall": 0.3323353293413174,
+        "support": 334
+      }
+    },
+    "weighted_f1": 0.16600051885884526
+  },
+  "isolation_forest": {
+    "anomalous": {
+      "count": 1002.0,
+      "max": -0.023322174013344465,
+      "mean": -0.11855283271263527,
+      "median": -0.11792243750460912,
+      "min": -0.25809614565011896
+    },
+    "f1": 0.011730205278592375,
+    "false_positive_rate": 0.02245508982035928,
+    "normal": {
+      "count": 668.0,
+      "max": 0.0007177302504037808,
+      "mean": -0.14375659297056603,
+      "median": -0.21411024063077033,
+      "min": -0.30053626597978644
+    },
+    "precision": 0.2857142857142857,
+    "recall": 0.005988023952095809,
+    "status": "calibrated",
+    "threshold": 0.9804319659084335
+  },
+  "limitations": [
+    "Scores are synthetic-lab-only and must not be presented as production performance.",
+    "Class-probability calibration is isotonic and may overfit this small synthetic calibration partition.",
+    "Learned stacking is disabled until grouped out-of-fold normal-baseline coverage exists."
+  ],
+  "model_bundle_id": "ml-bundle.v1.d9a60ef6c76bf9c0",
+  "model_bundle_version": "ml-bundle.v1",
+  "schema_version": "evaluation.v1",
+  "test_environment_ids": [
+    "lab_test"
+  ],
+  "test_session_count": 1670,
+  "test_split_sha256": "2ef86ce9ad3c2aa07c79b5f92b7693659488d446a662909de547c885da5ef39b"
+}

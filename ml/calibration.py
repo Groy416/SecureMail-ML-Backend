@@ -215,7 +215,7 @@ def save_calibration_state(state: CalibrationState, directory: str | Path) -> No
                 "normal_low": state.normal_low,
                 "normal_high": state.normal_high,
                 "anomaly_threshold": state.anomaly_threshold,
-                "anomaly_enabled": state.anomaly_enabled,
+                "anomaly_enabled": bool(state.anomaly_enabled),
             }, 
             indent=2,
             sort_keys=True,

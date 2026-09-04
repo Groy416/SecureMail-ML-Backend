@@ -1,5 +1,34 @@
 # SecureMailScope ML
 
+## PCAP model commands
+
+```bash
+# Install and verify
+uv sync
+uv run python -m pytest -q
+uv run python -m py_compile ml/*.py datasets/lab/*.py scripts/*.py
+uv lock --check
+
+# Generate/reuse the deterministic 15-capture, 5,010-session lab matrix
+uv run python - <<'PY'
+from datasets.lab.runner import build_training_matrix, run_scenario
+for profile in build_training_matrix(420042):
+    run = run_scenario(profile)
+    print(profile.scenario.scenario_id, profile.protocol.value, run.status)
+PY
+
+# Re-evaluate the final saved bundle; writes evals/evaluation-<hash>/metrics.json
+uv run python scripts/evaluate_pcap_bundle.py
+```
+
+**Final synthetic-lab bundle:** `models/pcap-b23f490d266e-v2`  
+**Dataset:** `datasets/runs/synthetic-pcap-b23f490d266e`  
+**Latest evaluation:** `evals/evaluation-9ac8a5e5d541/metrics.json`
+
+### API handoff (no server included)
+
+A teammate should expose `ml.pipeline.predict_session(bundle, calibration, record)`. Construct and validate a `SessionFeatureRecord` from the passive session extractor, load `ModelBundle` with `ml.models.load_model_bundle(...)`, load calibration with `ml.calibration.load_calibration_state(...)`, and return the resulting `MLResult` JSON. Do not accept PCAP uploads without authorization controls; do not send email bodies, credentials, TLS key logs, or private keys to the API. Rules remain authoritative and ML must not downgrade rule severity.
+
 SecureMailScope ML is a Python library-first pipeline for passive email-network security assessment. It turns reconstructed SMTP/IMAP/POP3 session observations into:
 
 - supervised cryptographic-risk predictions;

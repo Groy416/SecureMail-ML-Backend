@@ -40,6 +40,8 @@ _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
         "cipher_string": "ECDHE-RSA-CHACHA20-POLY1305",
     },
     "multiple_renegotiations": {"requires_renegotiation": True},
+    "deprecated_tls": {"certificate_mode": "unknown_ca", "connection_count": 3},
+    "weak_cipher": {"certificate_mode": "unknown_ca", "connection_count": 3},
     "combined_critical_weaknesses": {
         "certificate_mode": "unknown_ca",
         "connection_count": 3,
@@ -48,6 +50,8 @@ _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
 
 _CERTIFICATE_MODE: dict[str, str] = {
     "expired_certificate": "expired",
+    "deprecated_tls": "unknown_ca",
+    "weak_cipher": "unknown_ca",
     "invalid_certificate_chain": "unknown_ca",
     "hostname_mismatch": "hostname_mismatch",
     "weak_rsa_key": "weak_rsa",
@@ -122,6 +126,7 @@ def resolve_runtime_profile(
     environment_id: str,
     master_seed: int,
     repetition_index: int,
+    connection_count: int | None = None,
 ) -> LabRuntimeProfile:
     scenario = _protocol_scenario(manifest, protocol)
     derived_seed = scenario_seed(master_seed, scenario.scenario_id, repetition_index)
@@ -151,6 +156,8 @@ def resolve_runtime_profile(
         "service": "legacy-lab" if base_id in {"weak_rsa_key", "expired_certificate"} else "mail-core",
     }
     runtime.update(_PROFILE_OVERRIDES.get(base_id, {}))
+    if connection_count is not None:
+        runtime["connection_count"] = connection_count
     if runtime["client_mode"] == "unused_starttls":
         runtime["starttls_accepted"] = False
     payload = dict(runtime)
