@@ -73,7 +73,7 @@ def _record(manifest: ScenarioManifest, environment_id: str) -> SessionFeatureRe
             source_type=SourceType.SYNTHETIC_PCAP,
             scenario_id=manifest.scenario_id,
             environment_id=environment_id,
-            parameter_hash="a" * 64,
+            parameter_hash=hashlib.sha256(capture_id.encode()).hexdigest(),
             generator_seed=7,
             evidence_refs=[
                 EvidenceReference(

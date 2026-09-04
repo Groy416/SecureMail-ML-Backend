@@ -21,9 +21,9 @@ from ml.schema import (
 
 
 class FusionConfig(ContractModel):
-    xgboost_weight: float = Field(default=0.50, ge=0, le=1)
-    random_forest_weight: float = Field(default=0.30, ge=0, le=1)
-    isolation_forest_weight: float = Field(default=0.20, ge=0, le=1)
+    xgboost_weight: float = Field(default=0.625, ge=0, le=1)
+    random_forest_weight: float = Field(default=0.375, ge=0, le=1)
+    isolation_forest_weight: float = Field(default=0.0, ge=0, le=1)
 
     def __init__(self, **data: object) -> None:
         super().__init__(**data)
@@ -110,10 +110,11 @@ def _action(
     risk: RiskLabel,
     anomaly_detected: bool,
     minimum_rule_severity: RiskLabel | None,
+    isolation_forest_weight: float,
 ) -> ModelAction:
     if minimum_rule_severity is RiskLabel.CRITICAL:
         return ModelAction.CRITICAL_REVIEW
-    if anomaly_detected:
+    if anomaly_detected and isolation_forest_weight > 0:
         return ModelAction.ANALYST_REVIEW
     if risk in {RiskLabel.INFORMATIONAL}:
         return ModelAction.NO_ACTION
@@ -175,6 +176,11 @@ def fuse_session(
         for finding in findings
         for reference in finding.evidence_refs
     )
+    isolation_notes: list[str] = []
+    if not calibration.anomaly_enabled:
+        isolation_notes.append("unavailable:degenerate_normal_calibration")
+    if fusion.isolation_forest_weight == 0:
+        isolation_notes.append("excluded_from_risk_fusion:unusable_anomaly_scores")
     return MLResult(
         capture_id=record.provenance.capture_id,
         session_id=record.provenance.session_id,
@@ -217,15 +223,16 @@ def fuse_session(
             },
         },
         rule_findings=list(findings),
-        action=_action(final_risk, anomaly_detected, minimum_rule_severity),
+        action=_action(
+            final_risk,
+            anomaly_detected,
+            minimum_rule_severity,
+            fusion.isolation_forest_weight,
+        ),
         evidence_refs=list(dict.fromkeys(evidence_refs)),
         diagnostics={
             **output.diagnostics,
-            **(
-                {"isolation_forest": ["unavailable:degenerate_normal_calibration"]}
-                if not calibration.anomaly_enabled
-                else {}
-            ),
+            **({"isolation_forest": isolation_notes} if isolation_notes else {}),
         },
     )
 

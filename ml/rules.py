@@ -106,6 +106,16 @@ def extract_rule_findings(record: SessionFeatureRecord) -> list[RuleFinding]:
                 ("cert_chain_valid",),
             )
         )
+    if features.cert_chain_valid is False and features.handshake_failures >= 3:
+        findings.append(
+            _finding(
+                record,
+                "CRIT-001",
+                RiskLabel.CRITICAL,
+                "Invalid certificate chain with repeated TLS handshake failures",
+                ("cert_chain_valid", "handshake_failures"),
+            )
+        )
     if features.hostname_mismatch is True:
         findings.append(
             _finding(

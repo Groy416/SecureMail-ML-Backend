@@ -65,6 +65,7 @@ EXCLUDED_FROM_MODEL: frozenset[str] = frozenset(
        "scenario_id",
        "environment_id",
        "generator_seed",
+       "parameter_hash",
        "source_ip",
        "destination_ip",
        "risk_label",

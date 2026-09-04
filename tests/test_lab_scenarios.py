@@ -60,8 +60,8 @@ def test_client_tls_context_uses_the_runtime_profile() -> None:
         warnings.simplefilter("ignore", DeprecationWarning)
         configure_tls_context(context, profile.model_dump(mode="json"))
 
-    assert context.minimum_version is ssl.TLSVersion.TLSv1_3
-    assert context.maximum_version is ssl.TLSVersion.TLSv1_3
+    assert context.minimum_version is ssl.TLSVersion.TLSv1
+    assert context.maximum_version is ssl.TLSVersion.TLSv1
 
 
 def test_importing_server_does_not_start_listeners() -> None:

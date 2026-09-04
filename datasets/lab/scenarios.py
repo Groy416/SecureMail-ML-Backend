@@ -11,17 +11,22 @@ from ml.schema import ContractModel, Protocol, ScenarioManifest
 
 _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
     "deprecated_tls": {
+        "tls_minimum_version": "TLS1.0",
+        "tls_maximum_version": "TLS1.0",
         "cipher_string": "AES128-SHA:@SECLEVEL=0",
+        "service": "legacy-lab",
     },
     "weak_cipher": {
         "tls_minimum_version": "TLS1.2",
         "tls_maximum_version": "TLS1.2",
         "cipher_string": "DES-CBC3-SHA:@SECLEVEL=0",
+        "service": "legacy-lab",
     },
     "rsa_no_forward_secrecy": {
         "tls_minimum_version": "TLS1.2",
         "tls_maximum_version": "TLS1.2",
         "cipher_string": "AES128-SHA:@SECLEVEL=0",
+        "service": "legacy-lab",
     },
     "starttls_advertised_unused": {"client_mode": "unused_starttls"},
     "starttls_handshake_failure": {"client_mode": "abort_starttls"},
@@ -39,12 +44,25 @@ _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
         "tls_maximum_version": "TLS1.2",
         "cipher_string": "ECDHE-RSA-CHACHA20-POLY1305",
     },
+    "uncommon_chacha20_ecdsa": {
+        "tls_minimum_version": "TLS1.2",
+        "tls_maximum_version": "TLS1.2",
+        "cipher_string": "ECDHE-RSA-CHACHA20-POLY1305",
+    },
+    "unusual_chacha20_rsa4096": {
+        "tls_minimum_version": "TLS1.2",
+        "tls_maximum_version": "TLS1.2",
+        "cipher_string": "ECDHE-RSA-CHACHA20-POLY1305",
+    },
     "multiple_renegotiations": {"requires_renegotiation": True},
-    "deprecated_tls": {"certificate_mode": "unknown_ca", "connection_count": 3},
-    "weak_cipher": {"certificate_mode": "unknown_ca", "connection_count": 3},
+    "invalid_chain_repeated_failures": {
+        "certificate_mode": "unknown_ca",
+        "connection_count": 3,
+    },
     "combined_critical_weaknesses": {
         "certificate_mode": "unknown_ca",
         "connection_count": 3,
+        "service": "legacy-lab",
     },
 }
 
@@ -56,6 +74,7 @@ _CERTIFICATE_MODE: dict[str, str] = {
     "hostname_mismatch": "hostname_mismatch",
     "weak_rsa_key": "weak_rsa",
     "combined_critical_weaknesses": "unknown_ca",
+    "invalid_chain_repeated_failures": "unknown_ca",
 }
 
 
@@ -99,11 +118,18 @@ class LabRuntimeProfile(ContractModel):
         return self
 
 
-def _protocol_scenario(manifest: ScenarioManifest, protocol: Protocol) -> ScenarioManifest:
+def _protocol_scenario(
+    manifest: ScenarioManifest,
+    protocol: Protocol,
+    scenario_suffix: str | None = None,
+) -> ScenarioManifest:
     suffix = protocol.value.lower()
+    scenario_id = f"{manifest.scenario_id}-{suffix}"
+    if scenario_suffix:
+        scenario_id = f"{scenario_id}-{scenario_suffix}"
     return manifest.model_copy(
         update={
-            "scenario_id": f"{manifest.scenario_id}-{suffix}",
+            "scenario_id": scenario_id,
             "description": f"{manifest.description} ({protocol.value} lab profile)",
             "protocol": protocol,
         }
@@ -127,8 +153,9 @@ def resolve_runtime_profile(
     master_seed: int,
     repetition_index: int,
     connection_count: int | None = None,
+    scenario_suffix: str | None = None,
 ) -> LabRuntimeProfile:
-    scenario = _protocol_scenario(manifest, protocol)
+    scenario = _protocol_scenario(manifest, protocol, scenario_suffix)
     derived_seed = scenario_seed(master_seed, scenario.scenario_id, repetition_index)
     base_id = manifest.scenario_id
     runtime: dict[str, object] = {
@@ -153,7 +180,16 @@ def resolve_runtime_profile(
         "connection_count": 1,
         "requires_renegotiation": False,
         "command_delay_milliseconds": derived_seed % 21,
-        "service": "legacy-lab" if base_id in {"weak_rsa_key", "expired_certificate"} else "mail-core",
+        "service": "legacy-lab"
+        if base_id
+        in {
+            "weak_rsa_key",
+            "expired_certificate",
+            "deprecated_tls",
+            "weak_cipher",
+            "rsa_no_forward_secrecy",
+        }
+        else "mail-core",
     }
     runtime.update(_PROFILE_OVERRIDES.get(base_id, {}))
     if connection_count is not None:

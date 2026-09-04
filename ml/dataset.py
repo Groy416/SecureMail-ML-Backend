@@ -393,29 +393,179 @@ CATALOG: tuple[dict[str, Any], ...] = (
         evidence_fields=["starttls_advertised", "starttls_used"],
     ),
     _entry(
+        scenario_id="normal_tls13_aes128",
+        family="normal_baseline",
+        description="TLS 1.3 AES-128-GCM with a valid certificate",
+        risk_label="informational",
+        anomaly_label=0,
+        expected_finding_ids=[],
+        tls={
+            "version": "TLS1.3",
+            "cipher_suite": "TLS_AES_128_GCM_SHA256",
+            "key_exchange": "ECDHE",
+            "forward_secrecy": True,
+            "signature_algorithm": "RSA-PSS",
+        },
+        certificate=_CERT_OK,
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            cipher_suite="TLS_AES_128_GCM_SHA256",
+            cipher_family="AES-GCM",
+        ),
+        evidence_fields=["tls_version", "cipher_suite"],
+    ),
+    _entry(
+        scenario_id="normal_tls12_aes256",
+        family="normal_baseline",
+        description="TLS 1.2 AES-256-GCM with a valid certificate",
+        risk_label="informational",
+        anomaly_label=0,
+        expected_finding_ids=[],
+        tls={
+            "version": "TLS1.2",
+            "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "key_exchange": "ECDHE",
+            "forward_secrecy": True,
+            "signature_algorithm": "SHA256-RSA",
+        },
+        certificate=_CERT_OK,
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            tls_version="TLS1.2",
+            cipher_suite="TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            cipher_family="AES-GCM",
+            signature_algorithm="SHA256-RSA",
+        ),
+        evidence_fields=["tls_version", "cipher_suite"],
+    ),
+    _entry(
+        scenario_id="normal_tls13_ecdsa",
+        family="normal_baseline",
+        description="TLS 1.3 with a valid ECDSA certificate",
+        risk_label="informational",
+        anomaly_label=0,
+        expected_finding_ids=[],
+        tls=_TLS13,
+        certificate={"state": "valid", "key_algorithm": "ECDSA", "key_length_bits": 256},
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            cert_key_algorithm="ECDSA",
+            cert_key_length_bits=256,
+            cert_signature_algorithm="SHA256-ECDSA",
+            signature_algorithm="ECDSA",
+        ),
+        evidence_fields=["cert_key_algorithm", "tls_version"],
+    ),
+    _entry(
+        scenario_id="normal_tls12_rsa4096",
+        family="normal_baseline",
+        description="TLS 1.2 with a valid 4096-bit RSA certificate",
+        risk_label="informational",
+        anomaly_label=0,
+        expected_finding_ids=[],
+        tls=_TLS12,
+        certificate={"state": "valid", "key_algorithm": "RSA", "key_length_bits": 4096},
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            tls_version="TLS1.2",
+            cipher_suite="TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            cipher_family="AES-GCM",
+            signature_algorithm="SHA256-RSA",
+            cert_key_length_bits=4096,
+        ),
+        evidence_fields=["cert_key_length_bits", "tls_version"],
+    ),
+    _entry(
+        scenario_id="normal_tls12_aes_cbc",
+        family="normal_baseline",
+        description="TLS 1.2 AES-CBC with a valid certificate",
+        risk_label="informational",
+        anomaly_label=0,
+        expected_finding_ids=[],
+        tls={
+            "version": "TLS1.2",
+            "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+            "key_exchange": "ECDHE",
+            "forward_secrecy": True,
+            "signature_algorithm": "SHA256-RSA",
+        },
+        certificate=_CERT_OK,
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            tls_version="TLS1.2",
+            cipher_suite="TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+            cipher_family="AES-CBC",
+            signature_algorithm="SHA256-RSA",
+        ),
+        evidence_fields=["tls_version", "cipher_family"],
+    ),
+    _entry(
         scenario_id="deprecated_tls",
-        family="combined",
-        description="Invalid certificate chain with repeated TLS failures",
+        family="cryptographic_weakness",
+        description="Deprecated TLS 1.0 without forward secrecy",
         risk_label="critical",
         anomaly_label=1,
-        expected_finding_ids=["CERT-003"],
-        tls=_TLS13,
-        certificate={"state": "invalid_chain", "key_algorithm": "RSA", "key_length_bits": 2048},
+        expected_finding_ids=["TLS-001", "FS-001"],
+        tls={
+            "version": "TLS1.0",
+            "cipher_suite": "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "key_exchange": "RSA",
+            "forward_secrecy": False,
+            "signature_algorithm": "SHA1-RSA",
+        },
+        certificate=_CERT_OK,
         client_behavior=_STARTTLS_USED,
-        features=_ok_features(cert_valid=False, cert_chain_valid=False, handshake_failures=3),
-        evidence_fields=["cert_chain_valid", "handshake_failures"],
+        features=_ok_features(
+            tls_version="TLS1.0",
+            cipher_suite="TLS_RSA_WITH_AES_128_CBC_SHA",
+            cipher_family="AES-CBC",
+            key_exchange="RSA",
+            signature_algorithm="SHA1-RSA",
+            forward_secrecy=False,
+        ),
+        evidence_fields=["tls_version", "forward_secrecy"],
     ),
     _entry(
         scenario_id="weak_cipher",
-        family="combined",
-        description="Untrusted certificate chain with repeated TLS failures",
+        family="cryptographic_weakness",
+        description="Weak 3DES cipher suite",
         risk_label="critical",
         anomaly_label=1,
-        expected_finding_ids=["CERT-003"],
+        expected_finding_ids=["TLS-002", "FS-001"],
+        tls={
+            "version": "TLS1.2",
+            "cipher_suite": "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+            "key_exchange": "RSA",
+            "forward_secrecy": False,
+            "signature_algorithm": "SHA1-RSA",
+        },
+        certificate=_CERT_OK,
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            tls_version="TLS1.2",
+            cipher_suite="TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+            cipher_family="3DES",
+            key_exchange="RSA",
+            signature_algorithm="SHA1-RSA",
+            forward_secrecy=False,
+        ),
+        evidence_fields=["cipher_suite", "cipher_family"],
+    ),
+    _entry(
+        scenario_id="invalid_chain_repeated_failures",
+        family="combined",
+        description="Invalid certificate chain with repeated TLS handshake failures",
+        risk_label="critical",
+        anomaly_label=1,
+        expected_finding_ids=["CRIT-001", "CERT-003", "ANOM-001"],
         tls=_TLS13,
         certificate={"state": "invalid_chain", "key_algorithm": "RSA", "key_length_bits": 2048},
         client_behavior=_STARTTLS_USED,
-        features=_ok_features(cert_valid=False, cert_chain_valid=False, handshake_failures=3),
+        features=_ok_features(
+            cert_valid=False,
+            cert_chain_valid=False,
+            handshake_failures=3,
+        ),
         evidence_fields=["cert_chain_valid", "handshake_failures"],
     ),
     _entry(
@@ -594,20 +744,18 @@ CATALOG: tuple[dict[str, Any], ...] = (
         expected_finding_ids=["ANOM-002"],
         tls={
             "version": "TLS1.2",
-            "cipher_suite": "TLS_RSA_WITH_RC4_128_SHA",
-            "key_exchange": "RSA",
-            "forward_secrecy": False,
-            "signature_algorithm": "SHA1-RSA",
+            "cipher_suite": "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "key_exchange": "ECDHE",
+            "forward_secrecy": True,
+            "signature_algorithm": "SHA256-RSA",
         },
         certificate=_CERT_OK,
         client_behavior=_STARTTLS_USED,
         features=_ok_features(
             tls_version="TLS1.2",
-            cipher_suite="TLS_RSA_WITH_RC4_128_SHA",
-            cipher_family="RC4",
-            key_exchange="RSA",
-            signature_algorithm="SHA1-RSA",
-            forward_secrecy=False,
+            cipher_suite="TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            cipher_family="CHACHA20-POLY1305",
+            signature_algorithm="SHA256-RSA",
         ),
         evidence_fields=["cipher_suite", "cipher_family"],
     ),
@@ -656,6 +804,57 @@ CATALOG: tuple[dict[str, Any], ...] = (
             cipher_family="CHACHA20-POLY1305",
         ),
         evidence_fields=["cipher_suite", "cipher_family"],
+    ),
+    _entry(
+        scenario_id="uncommon_chacha20_ecdsa",
+        family="behavioral_anomaly",
+        description="ChaCha20 negotiation with an ECDSA certificate",
+        risk_label="medium",
+        anomaly_label=1,
+        expected_finding_ids=["ANOM-002"],
+        tls={
+            "version": "TLS1.3",
+            "cipher_suite": "TLS_CHACHA20_POLY1305_SHA256",
+            "key_exchange": "ECDHE",
+            "forward_secrecy": True,
+            "signature_algorithm": "ECDSA",
+        },
+        certificate={"state": "valid", "key_algorithm": "ECDSA", "key_length_bits": 256},
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            cipher_suite="TLS_CHACHA20_POLY1305_SHA256",
+            cipher_family="CHACHA20-POLY1305",
+            signature_algorithm="ECDSA",
+            cert_key_algorithm="ECDSA",
+            cert_key_length_bits=256,
+            cert_signature_algorithm="SHA256-ECDSA",
+        ),
+        evidence_fields=["cipher_suite", "cert_key_algorithm"],
+    ),
+    _entry(
+        scenario_id="unusual_chacha20_rsa4096",
+        family="behavioral_anomaly",
+        description="TLS 1.2 ChaCha20 with a 4096-bit RSA certificate",
+        risk_label="medium",
+        anomaly_label=1,
+        expected_finding_ids=["ANOM-002"],
+        tls={
+            "version": "TLS1.2",
+            "cipher_suite": "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "key_exchange": "ECDHE",
+            "forward_secrecy": True,
+            "signature_algorithm": "SHA256-RSA",
+        },
+        certificate={"state": "valid", "key_algorithm": "RSA", "key_length_bits": 4096},
+        client_behavior=_STARTTLS_USED,
+        features=_ok_features(
+            tls_version="TLS1.2",
+            cipher_suite="TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            cipher_family="CHACHA20-POLY1305",
+            signature_algorithm="SHA256-RSA",
+            cert_key_length_bits=4096,
+        ),
+        evidence_fields=["cipher_suite", "cert_key_length_bits"],
     ),
     _entry(
         scenario_id="multiple_renegotiations",
@@ -772,6 +971,11 @@ BUCKET_SCENARIO_IDS: dict[str, tuple[str, ...]] = {
         "normal_tls13_valid",
         "normal_tls12_valid",
         "starttls_used_successfully",
+        "normal_tls13_aes128",
+        "normal_tls12_aes256",
+        "normal_tls13_ecdsa",
+        "normal_tls12_rsa4096",
+        "normal_tls12_aes_cbc",
     ),
     "single_weakness": (
         "deprecated_tls",
@@ -792,9 +996,14 @@ BUCKET_SCENARIO_IDS: dict[str, tuple[str, ...]] = {
         "unusual_cipher_negotiation",
         "unexpected_tls_version",
         "uncommon_chacha20_negotiation",
+        "uncommon_chacha20_ecdsa",
+        "unusual_chacha20_rsa4096",
         "multiple_renegotiations",
     ),
-    "combined": ("combined_critical_weaknesses",),
+    "combined": (
+        "combined_critical_weaknesses",
+        "invalid_chain_repeated_failures",
+    ),
 }
 
 
@@ -841,8 +1050,11 @@ def _build_record(
     master_seed: int,
     environment_id: str,
     repetition_index: int,
+    capture_id: str | None = None,
+    parameter_hash: str | None = None,
 ) -> SessionFeatureRecord:
     manifest = ScenarioManifest.model_validate(item["manifest"])
+    base_id = str(item.get("base_scenario_id", item["manifest"]["scenario_id"]))
     derived_seed = scenario_seed(
         master_seed,
         manifest.scenario_id,
@@ -865,23 +1077,32 @@ def _build_record(
     )
     features["retransmission_count"] = rng.randint(0, 2)
     features["out_of_order_count"] = rng.randint(0, 2)
-    if manifest.scenario_id == "repeated_handshake_failures":
+    if base_id in {
+        "repeated_handshake_failures",
+        "invalid_chain_repeated_failures",
+    }:
         features["handshake_failures"] = rng.randint(3, 8)
-    if manifest.scenario_id == "multiple_renegotiations":
+    if base_id == "multiple_renegotiations":
         features["renegotiation_count"] = rng.randint(2, 6)
-    if manifest.scenario_id == "starttls_handshake_failure":
+    if base_id == "starttls_handshake_failure":
         features["handshake_failures"] = rng.randint(1, 3)
 
     suffix = f"{manifest.scenario_id}_{repetition_index:06d}"
+    resolved_capture = capture_id or f"cap_{suffix}"
     record = {
         "schema_version": "session-features.v1",
         "provenance": {
-            "capture_id": f"cap_{suffix}",
-            "flow_id": f"flow_{suffix}",
-            "session_id": f"sess_{suffix}",
+            "capture_id": resolved_capture,
+            "flow_id": f"{resolved_capture}:flow_{repetition_index:04d}",
+            "session_id": (
+                f"{resolved_capture}:sess_{repetition_index:04d}"
+                if capture_id
+                else f"sess_{suffix}"
+            ),
             "source_type": "synthetic_feature",
             "scenario_id": manifest.scenario_id,
             "environment_id": environment_id,
+            "parameter_hash": parameter_hash,
             "generator_seed": derived_seed,
             "evidence_refs": [
                 {
@@ -1052,7 +1273,7 @@ def split_dataset(
         ]
     test_records = [dataset.records[index] for index in test]
 
-    for attribute in ("environment_id", "scenario_id"):
+    for attribute in ("environment_id", "scenario_id", "capture_id"):
         split_groups = [
             {getattr(record.provenance, attribute) for record in partition}
             for partition in (train, validation, test_records)
@@ -1063,6 +1284,20 @@ def split_dataset(
             for right in split_groups[position + 1 :]
         ):
             raise RuntimeError(f"{attribute} leakage detected across splits")
+    parameter_groups = [
+        {
+            record.provenance.parameter_hash
+            for record in partition
+            if record.provenance.parameter_hash
+        }
+        for partition in (train, validation, test_records)
+    ]
+    if any(parameter_groups) and any(
+        left & right
+        for position, left in enumerate(parameter_groups)
+        for right in parameter_groups[position + 1 :]
+    ):
+        raise RuntimeError("parameter_hash leakage detected across splits")
 
     split_payload = {
         "train": [record.provenance.session_id for record in train],

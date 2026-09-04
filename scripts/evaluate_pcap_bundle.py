@@ -1,26 +1,32 @@
-"""Re-evaluate the saved PCAP bundle against its deterministic lab matrix."""
+"""Evaluate the grouped 69-capture lab matrix against its saved bundle."""
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from datasets.lab.runner import assemble_successful_runs, build_training_matrix, run_scenario
+from datasets.lab.matrix import generate_grouped_feature_dataset
 from ml.calibration import load_calibration_state
 from ml.dataset import split_dataset
 from ml.evaluate import evaluate_bundle, save_evaluation_report
 from ml.models import load_model_bundle
 
 SEED = 420042
-BUNDLE = "models/pcap-b23f490d266e-v2"
+BUNDLE = "models/grouped-69-capture"
 
-runs = [run_scenario(profile) for profile in build_training_matrix(SEED)]
-if any(run.status != "success" for run in runs):
-    raise SystemExit("all 15 matrix captures must succeed before evaluation")
-dataset = assemble_successful_runs(runs, {
-    "mode": "synthetic_pcap", "master_seed": SEED, "session_count": 5010,
-    "environment_ids": ("lab_train", "lab_calibration", "lab_test"),
-    "calibration_environment_id": "lab_calibration", "evaluation_environment_id": "lab_test",
-})
-split = split_dataset(dataset, {"random_seed": SEED, "validation_environment_id": "lab_calibration", "test_environment_id": "lab_test"})
-report = evaluate_bundle(load_model_bundle(BUNDLE), load_calibration_state(BUNDLE), split)
+dataset = generate_grouped_feature_dataset(SEED)
+split = split_dataset(
+    dataset,
+    {
+        "random_seed": SEED,
+        "validation_environment_id": "lab_calibration",
+        "test_environment_id": "lab_test",
+    },
+)
+report = evaluate_bundle(
+    load_model_bundle(BUNDLE),
+    load_calibration_state(BUNDLE),
+    split,
+)
 print(save_evaluation_report(report, "evals"))

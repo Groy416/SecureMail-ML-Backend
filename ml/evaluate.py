@@ -30,6 +30,7 @@ from ml.models import (
     ModelOutputs,
     predict_model_outputs,
 )
+from ml.rules import extract_rule_findings
 from ml.schema import RiskLabel
 
 EVALUATION_VERSION = "evaluation.v1"
@@ -115,6 +116,7 @@ def _label_metrics(predictions: np.ndarray, labels: np.ndarray) -> dict[str, Any
         for index, label in enumerate(RISK_LABELS)
     }
     return {
+        "accuracy": float(np.mean(predictions == labels)),
         "per_class": per_class,
         "macro_f1": (
             float(f1_score(labels, predictions, labels=present, average="macro"))
@@ -204,7 +206,7 @@ def evaluate_bundle(
         ),
     }
     fused_results = [
-        fuse_session(record, output, calibration)
+        fuse_session(record, output, calibration, extract_rule_findings(record))
         for record, output in zip(split.test, outputs, strict=True)
     ]
     fusion_labels = np.asarray(

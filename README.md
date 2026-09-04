@@ -23,7 +23,7 @@ uv run python scripts/evaluate_pcap_bundle.py
 
 **Final synthetic-lab bundle:** `models/pcap-b23f490d266e-v2`  
 **Dataset:** `datasets/runs/synthetic-pcap-b23f490d266e`  
-**Latest evaluation:** `evals/evaluation-9ac8a5e5d541/metrics.json`
+**Latest evaluation:** `evals/evaluation-255d726301ce/metrics.json`
 
 ### API handoff (no server included)
 
