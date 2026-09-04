@@ -1,31 +1,22 @@
 # SecureMailScope ML
 
-## PCAP model commands
+## Production scoring
+
+Frozen bundle: `models/grouped-69-capture`  
+CI regression eval: `evals/evaluation-0f4013265976/metrics.json` (synthetic 5,037-row holdout, not live traffic)
+
+Roundcap / live extractors must send **session feature JSON only**. This process does not accept PCAP uploads, mail bodies, or secrets.
 
 ```bash
-# Install and verify
 uv sync
 uv run python -m pytest -q
-uv run python -m py_compile ml/*.py datasets/lab/*.py scripts/*.py
-uv lock --check
-
-# Generate/reuse the deterministic 15-capture, 5,010-session lab matrix
-uv run python - <<'PY'
-from datasets.lab.runner import build_training_matrix, run_scenario
-for profile in build_training_matrix(420042):
-    run = run_scenario(profile)
-    print(profile.scenario.scenario_id, profile.protocol.value, run.status)
-PY
-
-# Re-evaluate the final saved bundle; writes evals/evaluation-<hash>/metrics.json
-uv run python scripts/evaluate_pcap_bundle.py
+uv run python -m ml.product --bundle models/grouped-69-capture --input sessions.jsonl --output results.jsonl
+uv run python scripts/evaluate_prod_holdouts.py
 ```
 
-**Final synthetic-lab bundle:** `models/pcap-b23f490d266e-v2`  
-**Dataset:** `datasets/runs/synthetic-pcap-b23f490d266e`  
-**Latest evaluation:** `evals/evaluation-255d726301ce/metrics.json`
+`ml.product` returns `risk.class`, `action`, and `rule_findings`. Isolation Forest is recorded but does not change risk or action. Rules are authoritative; ML does not downgrade them. Authorized captures are evaluation/shadow data, not training data.
 
-### API handoff (no server included)
+### API handoff
 
 A teammate should expose `ml.pipeline.predict_session(bundle, calibration, record)`. Construct and validate a `SessionFeatureRecord` from the passive session extractor, load `ModelBundle` with `ml.models.load_model_bundle(...)`, load calibration with `ml.calibration.load_calibration_state(...)`, and return the resulting `MLResult` JSON. Do not accept PCAP uploads without authorization controls; do not send email bodies, credentials, TLS key logs, or private keys to the API. Rules remain authoritative and ML must not downgrade rule severity.
 

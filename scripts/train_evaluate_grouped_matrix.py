@@ -28,6 +28,15 @@ def main() -> None:
         },
     )
     write_dataset_run(dataset, split, "datasets/runs")
+    print(
+        "split",
+        "train",
+        len(split.train),
+        "calibration",
+        len(split.validation),
+        "eval",
+        len(split.test),
+    )
     bundle = train_model_bundle(split, {"random_seed": SEED})
     calibration = calibrate_scores(
         predict_model_outputs(bundle, split.validation),

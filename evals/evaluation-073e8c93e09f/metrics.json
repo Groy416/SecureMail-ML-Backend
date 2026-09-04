@@ -1,0 +1,284 @@
+{
+  "calibration_version": "calibration.v2",
+  "classifiers": {
+    "random_forest": {
+      "accuracy": 0.75,
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          120,
+          0,
+          0,
+          240,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          120
+        ]
+      ],
+      "critical_precision": 1.0,
+      "critical_recall": 1.0,
+      "macro_f1": 0.9,
+      "multiclass_brier_score": 0.5000054526451021,
+      "per_class": {
+        "critical": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 120
+        },
+        "high": {
+          "f1": 0.8,
+          "pr_auc": 0.9166666666666666,
+          "precision": 1.0,
+          "recall": 0.6666666666666666,
+          "roc_auc": 0.8333333333333333,
+          "support": 360
+        },
+        "informational": {
+          "f1": null,
+          "pr_auc": null,
+          "precision": null,
+          "recall": null,
+          "roc_auc": null,
+          "support": 0
+        },
+        "low": {
+          "f1": null,
+          "pr_auc": null,
+          "precision": null,
+          "recall": null,
+          "roc_auc": null,
+          "support": 0
+        },
+        "medium": {
+          "f1": null,
+          "pr_auc": null,
+          "precision": null,
+          "recall": null,
+          "roc_auc": null,
+          "support": 0
+        }
+      },
+      "weighted_f1": 0.85
+    },
+    "xgboost": {
+      "accuracy": 0.41458333333333336,
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          120,
+          0,
+          0,
+          79,
+          161
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          120
+        ]
+      ],
+      "critical_precision": 0.42704626334519574,
+      "critical_recall": 1.0,
+      "macro_f1": 0.47920631223762916,
+      "multiclass_brier_score": 0.9510011029651373,
+      "per_class": {
+        "critical": {
+          "f1": 0.5985037406483791,
+          "pr_auc": 0.25486144297264585,
+          "precision": 0.42704626334519574,
+          "recall": 1.0,
+          "roc_auc": 0.5527777777777778,
+          "support": 120
+        },
+        "high": {
+          "f1": 0.35990888382687924,
+          "pr_auc": 0.7194927425896488,
+          "precision": 1.0,
+          "recall": 0.21944444444444444,
+          "roc_auc": 0.21944444444444444,
+          "support": 360
+        },
+        "informational": {
+          "f1": null,
+          "pr_auc": null,
+          "precision": null,
+          "recall": null,
+          "roc_auc": null,
+          "support": 0
+        },
+        "low": {
+          "f1": null,
+          "pr_auc": null,
+          "precision": null,
+          "recall": null,
+          "roc_auc": null,
+          "support": 0
+        },
+        "medium": {
+          "f1": null,
+          "pr_auc": null,
+          "precision": null,
+          "recall": null,
+          "roc_auc": null,
+          "support": 0
+        }
+      },
+      "weighted_f1": 0.4195575980322542
+    }
+  },
+  "fusion": {
+    "accuracy": 1.0,
+    "confusion_matrix": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        360,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        120
+      ]
+    ],
+    "critical_precision": 1.0,
+    "critical_recall": 1.0,
+    "macro_f1": 1.0,
+    "per_class": {
+      "critical": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 120
+      },
+      "high": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 360
+      },
+      "informational": {
+        "f1": null,
+        "precision": null,
+        "recall": null,
+        "support": 0
+      },
+      "low": {
+        "f1": null,
+        "precision": null,
+        "recall": null,
+        "support": 0
+      },
+      "medium": {
+        "f1": null,
+        "precision": null,
+        "recall": null,
+        "support": 0
+      }
+    },
+    "weighted_f1": 1.0
+  },
+  "isolation_forest": {
+    "anomalous": {
+      "count": 480.0,
+      "max": -0.003218627442015509,
+      "mean": -0.03870749298361075,
+      "median": -0.04411573985653272,
+      "min": -0.062725456169206
+    },
+    "f1": 0.0,
+    "false_positive_rate": null,
+    "normal": null,
+    "precision": 0.0,
+    "recall": 0.0,
+    "status": "calibrated",
+    "threshold": 1.0
+  },
+  "limitations": [
+    "Scores are synthetic-lab-only and must not be presented as production performance.",
+    "Class-probability calibration is isotonic and may overfit this small synthetic calibration partition.",
+    "Learned stacking is disabled until grouped out-of-fold normal-baseline coverage exists."
+  ],
+  "model_bundle_id": "ml-bundle.v1.9e4f5109130ee9b1",
+  "model_bundle_version": "ml-bundle.v1",
+  "schema_version": "evaluation.v1",
+  "test_environment_ids": [
+    "lab_test"
+  ],
+  "test_session_count": 480,
+  "test_split_sha256": "9dbff434e55b0e1729d7664fd644762e50ce39065c4683d1d9ea46037d68caa3"
+}
