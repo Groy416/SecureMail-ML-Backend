@@ -74,6 +74,20 @@ EXCLUDED_FROM_MODEL: frozenset[str] = frozenset(
    }
 )
 
+ISOLATION_FOREST_FEATURES: tuple[str, ...] = tuple(
+    feature
+    for feature in MODEL_INPUT_FEATURES
+    if feature
+    not in {
+        "src_port",
+        "session_duration_seconds",
+        "packet_count",
+        "byte_count",
+        "retransmission_count",
+        "out_of_order_count",
+    }
+)
+
 FEATURE_DISPLAY_NAMES: dict[str, str] = {
    "protocol": "Protocol",
    "src_port": "Source port",

@@ -131,7 +131,7 @@ def _anomaly_entries(
     observed = record.features.model_dump(mode="json")
     original_raw_score = result.anomaly.raw_score
     contributions: list[ExplanationEntry] = []
-    for source_feature in bundle.preprocessor.source_features:
+    for source_feature in bundle.isolation_preprocessor.source_features:
         baseline_value = bundle.normal_baseline_features[source_feature]
         if source_feature == "protocol" and baseline_value is not None:
             baseline_value = Protocol(baseline_value)
@@ -139,7 +139,7 @@ def _anomaly_entries(
         setattr(perturbed_record.features, source_feature, baseline_value)
         perturbed_matrix = build_feature_matrix(
             [perturbed_record],
-            bundle.preprocessor,
+            bundle.isolation_preprocessor,
         )
         perturbed_raw_score = float(
             bundle.isolation_forest.decision_function(perturbed_matrix.matrix)[0]
@@ -147,7 +147,7 @@ def _anomaly_entries(
         contribution = perturbed_raw_score - original_raw_score
         metadata = next(
             metadata
-            for metadata in bundle.preprocessor.feature_map.values()
+            for metadata in bundle.isolation_preprocessor.feature_map.values()
             if metadata["source_feature"] == source_feature
         )
         contributions.append(

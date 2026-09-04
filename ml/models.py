@@ -17,6 +17,7 @@ from ml.dataset import SplitArtifact, records_hash
 from ml.features import (
     BOOLEAN_FEATURES,
     CATEGORICAL_FEATURES,
+    ISOLATION_FOREST_FEATURES,
     MODEL_INPUT_FEATURES,
     NUMERIC_FEATURES,
     extract_model_features,
@@ -55,14 +56,17 @@ class ModelConfig(ContractModel):
     n_jobs: int = 1
     isolation_contamination: float | str = "auto"
     source_features: tuple[str, ...] | None = None
+    isolation_source_features: tuple[str, ...] | None = None
 
     @model_validator(mode="after")
     def validate_runtime_options(self) -> ModelConfig:
         if self.n_jobs == 0:
             raise ValueError("n_jobs cannot be zero")
-        if self.source_features is not None:
-            unknown = set(self.source_features) - set(MODEL_INPUT_FEATURES)
-            if not self.source_features or unknown:
+        for selected in (self.source_features, self.isolation_source_features):
+            if selected is None:
+                continue
+            unknown = set(selected) - set(MODEL_INPUT_FEATURES)
+            if not selected or unknown:
                 raise ValueError(f"invalid source features: {sorted(unknown)}")
         if (
             isinstance(self.isolation_contamination, str)
@@ -98,6 +102,7 @@ class ModelBundle:
     bundle_id: str
     config: ModelConfig
     preprocessor: PreprocessorState
+    isolation_preprocessor: PreprocessorState
     xgboost: XGBClassifier
     xgboost_class_indices: tuple[int, ...]
     random_forest: RandomForestClassifier
@@ -244,11 +249,15 @@ def train_model_bundle(
         random_state=parsed.random_seed,
         n_jobs=parsed.n_jobs,
     ).fit(training.matrix, labels)
+    isolation_training = build_feature_matrix(
+        split.train,
+        source_features=parsed.isolation_source_features or ISOLATION_FOREST_FEATURES,
+    )
     isolation_forest = IsolationForest(
         contamination=parsed.isolation_contamination,
         random_state=parsed.random_seed,
         n_jobs=parsed.n_jobs,
-    ).fit(training.matrix[normal_mask])
+    ).fit(isolation_training.matrix[normal_mask])
 
     training_hash = records_hash(list(split.train))
     bundle_id = hashlib.sha256(
@@ -265,6 +274,7 @@ def train_model_bundle(
         bundle_id=f"{MODEL_BUNDLE_VERSION}.{bundle_id}",
         config=parsed,
         preprocessor=training.fit_state,
+        isolation_preprocessor=isolation_training.fit_state,
         xgboost=xgboost,
         xgboost_class_indices=xgboost_class_indices,
         random_forest=random_forest,
@@ -283,6 +293,7 @@ def predict_model_outputs(
     records: Sequence[SessionFeatureRecord],
 ) -> list[ModelOutputs]:
     matrix = build_feature_matrix(records, bundle.preprocessor)
+    isolation_matrix = build_feature_matrix(records, bundle.isolation_preprocessor)
     xgboost_probabilities = _five_class_probabilities(
         bundle.xgboost,
         matrix.matrix,
@@ -293,7 +304,7 @@ def predict_model_outputs(
         matrix.matrix,
         tuple(int(index) for index in bundle.random_forest.classes_),
     )
-    anomaly_scores = bundle.isolation_forest.decision_function(matrix.matrix)
+    anomaly_scores = bundle.isolation_forest.decision_function(isolation_matrix.matrix)
     return [
         ModelOutputs(
             xgboost=_classifier_output(xgboost_probabilities[index]),
@@ -321,6 +332,7 @@ def save_model_bundle(
         raise FileExistsError(f"model bundle directory already exists: {path}")
     path.mkdir(parents=True)
     save_preprocessor(bundle.preprocessor, path / "preprocessor.joblib")
+    save_preprocessor(bundle.isolation_preprocessor, path / "isolation_preprocessor.joblib")
     joblib.dump(bundle.xgboost, path / "xgboost.joblib")
     joblib.dump(bundle.random_forest, path / "random_forest.joblib")
     joblib.dump(bundle.isolation_forest, path / "isolation_forest.joblib")
@@ -376,6 +388,7 @@ def load_model_bundle(directory: str | Path) -> ModelBundle:
         version=manifest["bundle_version"],
         config=ModelConfig.model_validate(manifest["config"]),
         preprocessor=load_preprocessor(path / "preprocessor.joblib"),
+        isolation_preprocessor=load_preprocessor(path / "isolation_preprocessor.joblib"),
         xgboost=joblib.load(path / "xgboost.joblib"),
         xgboost_class_indices=tuple(manifest["xgboost_class_indices"]),
         random_forest=joblib.load(path / "random_forest.joblib"),

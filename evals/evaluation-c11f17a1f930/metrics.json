@@ -1,0 +1,290 @@
+{
+  "calibration_version": "calibration.v2",
+  "classifiers": {
+    "random_forest": {
+      "accuracy": 1.0,
+      "confusion_matrix": [
+        [
+          584,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          219,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          292,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          365,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          219
+        ]
+      ],
+      "critical_precision": 1.0,
+      "critical_recall": 1.0,
+      "macro_f1": 1.0,
+      "multiclass_brier_score": 0.0009585879999336183,
+      "per_class": {
+        "critical": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 219
+        },
+        "high": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 365
+        },
+        "informational": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 584
+        },
+        "low": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 219
+        },
+        "medium": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 292
+        }
+      },
+      "weighted_f1": 1.0
+    },
+    "xgboost": {
+      "accuracy": 1.0,
+      "confusion_matrix": [
+        [
+          584,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          219,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          292,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          365,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          219
+        ]
+      ],
+      "critical_precision": 1.0,
+      "critical_recall": 1.0,
+      "macro_f1": 1.0,
+      "multiclass_brier_score": 6.340671863987065e-06,
+      "per_class": {
+        "critical": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 219
+        },
+        "high": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 365
+        },
+        "informational": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 584
+        },
+        "low": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 219
+        },
+        "medium": {
+          "f1": 1.0,
+          "pr_auc": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "roc_auc": 1.0,
+          "support": 292
+        }
+      },
+      "weighted_f1": 1.0
+    }
+  },
+  "fusion": {
+    "accuracy": 1.0,
+    "confusion_matrix": [
+      [
+        584,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        219,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        292,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        365,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        219
+      ]
+    ],
+    "critical_precision": 1.0,
+    "critical_recall": 1.0,
+    "macro_f1": 1.0,
+    "per_class": {
+      "critical": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 219
+      },
+      "high": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 365
+      },
+      "informational": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 584
+      },
+      "low": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 219
+      },
+      "medium": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 292
+      }
+    },
+    "weighted_f1": 1.0
+  },
+  "isolation_forest": {
+    "anomalous": {
+      "count": 876.0,
+      "max": -0.0066631765608280435,
+      "mean": -0.023568756404835776,
+      "median": -0.01941514870990685,
+      "min": -0.0684125377376199
+    },
+    "f1": 0.15384615384615385,
+    "false_positive_rate": 0.0,
+    "normal": {
+      "count": 803.0,
+      "max": -0.0066631765608280435,
+      "mean": -0.025407782494194488,
+      "median": -0.020075035824746568,
+      "min": -0.05993931554591547
+    },
+    "precision": 1.0,
+    "recall": 0.08333333333333333,
+    "status": "calibrated",
+    "threshold": 1.0
+  },
+  "limitations": [
+    "Scores are synthetic-lab-only and must not be presented as production performance.",
+    "Class-probability calibration is isotonic and may overfit this small synthetic calibration partition.",
+    "Learned stacking is disabled until grouped out-of-fold normal-baseline coverage exists."
+  ],
+  "model_bundle_id": "ml-bundle.v1.09e4761e0fc150fb",
+  "model_bundle_version": "ml-bundle.v1",
+  "schema_version": "evaluation.v1",
+  "test_environment_ids": [
+    "lab_test"
+  ],
+  "test_session_count": 1679,
+  "test_split_sha256": "d0d7a25b5961c0a9884a8cfffc2bbb03d8232034d8dada53a3608beba920a03e"
+}

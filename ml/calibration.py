@@ -91,6 +91,34 @@ def normalized_anomaly_score(
     )
 
 
+def threshold_for_target_recall(
+    scores: np.ndarray,
+    labels: np.ndarray,
+    target_recall: float,
+) -> float:
+    if not 0 < target_recall <= 1:
+        raise ValueError("target_recall must be in (0, 1]")
+    anomalous = scores[labels == 1]
+    if len(anomalous) == 0:
+        return 1.0
+    best_threshold = float(np.quantile(anomalous, 1.0 - target_recall))
+    best_fpr = 1.0
+    has_normal = (labels == 0).any()
+    for threshold in np.unique(scores):
+        recall = float(np.mean(anomalous >= threshold))
+        if recall + 1e-12 < target_recall:
+            continue
+        false_positive_rate = (
+            float(np.mean(scores[labels == 0] >= threshold)) if has_normal else 0.0
+        )
+        if false_positive_rate < best_fpr or (
+            np.isclose(false_positive_rate, best_fpr) and threshold > best_threshold
+        ):
+            best_fpr = false_positive_rate
+            best_threshold = float(threshold)
+    return best_threshold
+
+
 def calibrate_scores(
     outputs: Sequence[ModelOutputs],
     records: Sequence[SessionFeatureRecord],
@@ -130,8 +158,10 @@ def calibrate_scores(
     if anomaly_enabled:
         normalized_normal_scores = np.asarray(
             [
-                normalized_anomaly_score(raw_score, state)
-                for raw_score in normal_raw_scores
+                normalized_anomaly_score(output.isolation_forest.raw_score, state)
+                for output, record in zip(outputs, records, strict=True)
+                if record.labels.risk_label is RiskLabel.INFORMATIONAL
+                and record.labels.anomaly_label.value == 0
             ],
             dtype=float,
         )
