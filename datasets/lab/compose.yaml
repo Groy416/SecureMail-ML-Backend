@@ -50,6 +50,38 @@ services:
       timeout: 2s
       retries: 30
 
+  legacy-lab:
+    build:
+      context: .
+      dockerfile: Dockerfile.legacy
+    hostname: legacy-lab
+    domainname: lab.test
+    profiles: [legacy]
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+      account-init:
+        condition: service_completed_successfully
+    environment:
+      PERMIT_DOCKER: network
+      SSL_TYPE: manual
+      SSL_CERT_PATH: /tmp/dms/custom-certs/cert.pem
+      SSL_KEY_PATH: /tmp/dms/custom-certs/key.pem
+      ENABLE_POP3: "1"
+      ONE_DIR: "1"
+    volumes:
+      - ${LAB_RUN_DIR:-./captures}:/captures
+      - ${LAB_RUN_DIR:-./captures}/certs:/tmp/dms/custom-certs:ro
+      - ${LAB_RUN_DIR:-./captures}/mail-data:/var/mail
+      - ${LAB_RUN_DIR:-./captures}/mail-state:/var/mail-state
+      - ${LAB_RUN_DIR:-./captures}/mail-config:/tmp/docker-mailserver
+    networks: [mail_lab]
+    healthcheck:
+      test: ["CMD-SHELL", "ss -ltn | grep -Eq ':(25|143|110) '"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
   capture:
     build: .
     command: ["/app/capture.sh"]
@@ -63,6 +95,18 @@ services:
     volumes:
       - ${LAB_RUN_DIR:-./captures}:/captures
 
+  legacy-client:
+    build:
+      context: .
+      dockerfile: Dockerfile.legacy-client
+    command: ["python", "/app/client.py"]
+    environment:
+      RUNTIME_PROFILE_PATH: /captures/runtime_profile.json
+      MAIL_HOST: ${MAIL_HOST:-legacy-lab}
+    volumes:
+      - ${LAB_RUN_DIR:-./captures}:/captures
+    networks: [mail_lab]
+
   client:
     build: .
     command: ["python", "/app/client.py"]
@@ -71,6 +115,8 @@ services:
         condition: service_started
     environment:
       RUNTIME_PROFILE_PATH: /captures/runtime_profile.json
+      MAIL_HOST: ${MAIL_HOST:-mail-core}
+      OPENSSL_CONF: /app/openssl-legacy.cnf
     volumes:
       - ${LAB_RUN_DIR:-./captures}:/captures
     networks: [mail_lab]

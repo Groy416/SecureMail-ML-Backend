@@ -10,7 +10,9 @@ SecureMailScope ML is a Python library-first pipeline for passive email-network 
 
 The governing principle is **evidence first, AI second**. The ML output is advisory. Deterministic protocol, TLS, certificate, and policy rules remain authoritative for security findings.
 
-> **Current status:** the core schema, feature-only dataset factory, PCAP dataset assembly, preprocessing, XGBoost, Random Forest, Isolation Forest, calibration, fusion, rules, explanations, evaluation, ablations, and a small Docker capture lab are implemented. The repository is not yet a packaged command-line application. See [Spec alignment](#spec-alignment) for the exact gaps between the target specification and the current code.
+> **Current status:** the core schema, feature-only dataset factory, PCAP dataset assembly, preprocessing, XGBoost, Random Forest, Isolation Forest, calibration, fusion, rules, explanations, evaluation, ablations, and a profile-driven Docker capture lab are implemented. The repository is not yet a packaged command-line application. See [Spec alignment](#spec-alignment) for the exact gaps between the target specification and the current code.
+
+The latest committed change, [`375b5a8`](https://github.com/Subham12R/SecureMail-ML/commit/375b5a8), refactored the lab around a digest-pinned Docker Mailserver, added protocol-specific runtime profiles and POP3 client support, and made PCAP records carry a parameter-combination hash. The working tree also contains uncommitted lab follow-up changes (POP3 CLI exposure, a `MAIL_HOST` override, and preliminary `legacy-lab` service routing/capture); they are preserved and called out below rather than treated as committed behavior.
 
 ## Security and product boundary
 
@@ -48,13 +50,22 @@ uv sync
 uv run pytest
 ```
 
-The current automated suite is intentionally small: `tests/test_pcap_dataset.py` verifies PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, and rejection of a training split with incomplete risk labels. It does not yet cover every item in the specification’s test plan.
+The current automated suite has 15 collected tests across four files. It covers PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, training-label validation, runtime-profile behavior, handshake detection, and Docker-gated lab integration for SMTP/IMAP. POP3 runtime support is not yet covered by an integration test, and the suite does not yet cover every item in the specification’s test plan.
 
 For a concise result:
 
 ```bash
 uv run pytest -q
 ```
+
+Useful focused checks:
+
+```bash
+uv run pytest tests/test_pcap_dataset.py tests/test_pcap_handshake.py tests/test_lab_scenarios.py -q
+uv run pytest tests/test_lab_integration.py -q
+```
+
+The integration file skips its Docker cases when the Docker daemon is unavailable.
 
 ### Run the module smoke checks
 
@@ -81,7 +92,13 @@ done
 uv run python -m ml.pcap
 ```
 
-That smoke check reads `datasets/lab/captures/synthetic_mail.pcap` when it exists. It uses the local `tshark` binary first and otherwise the Docker image described in [PCAP extraction](#pcap-extraction).
+That smoke check can read the legacy fixture at `datasets/lab/captures/synthetic_mail.pcap` when it exists. For new profile-driven captures, use the lab runner described in [Docker synthetic mail lab](#docker-synthetic-mail-lab). It uses the local `tshark` binary first and otherwise the Docker image described in [PCAP extraction](#pcap-extraction).
+
+The lab runner has its own help check:
+
+```bash
+uv run python -m datasets.lab.runner --help
+```
 
 There is no current `python -m securemailscope.ml ...` CLI. The CLI shape in `docs/specs/spec.md` is a future interface, not a command that can be run today.
 
@@ -109,10 +126,21 @@ There is no current `python -m securemailscope.ml ...` CLI. The CLI shape in `do
 │   ├── pcap.py                    # tshark/Docker PCAP-to-session adapter
 │   └── pipeline.py                # inference orchestration with explanations
 ├── datasets/
-│   └── lab/                       # isolated SMTP/IMAP STARTTLS Docker lab
+│   └── lab/
+│       ├── runner.py              # one profile-driven lab run and PCAP handoff
+│       ├── scenarios.py           # protocol-specific runtime profiles and hashes
+│       ├── client.py              # SMTP/IMAP/POP3 STARTTLS client
+│       ├── server.py/certs.py     # profile validation and certificate provisioning
+│       ├── capture.sh             # tcpdump sidecar for ports 25/143/110
+│       ├── Dockerfile.legacy      # uncommitted legacy-provider image
+│       ├── openssl-legacy.cnf     # uncommitted legacy OpenSSL providers
+│       ├── compose.yaml           # internal Docker Mailserver topology
+│       └── README.md              # lab-specific runbook
 ├── evals/                         # checked-in evaluation snapshots
-├── tests/                         # current pytest coverage
-└── docs/specs/spec.md             # implementation target and contracts
+├── tests/                         # unit and Docker-gated integration coverage
+└── docs/
+    ├── specs/spec.md              # implementation target and contracts
+    └── superpowers/               # design/implementation plans for PCAP matrix work
 ```
 
 The following directories are intentionally absent until generated: `models/` and `datasets/runs/`. They are ignored because they contain local model and dataset artifacts, not source code.
@@ -162,11 +190,11 @@ Labels in synthetic data come from the scenario manifest. They are never inferre
 `ml.schema.SessionFeatureRecord` is the canonical unit of inference. It contains:
 
 - `schema_version`: currently `session-features.v1`;
-- `provenance`: capture, flow, and session IDs; source type; scenario and environment IDs; optional generated seed; and one or more evidence references;
+- `provenance`: capture, flow, and session IDs; source type; scenario and environment IDs; the optional/generated seed; the PCAP parameter-combination hash when applicable; and one or more evidence references;
 - `features`: validated protocol/session, TLS, and certificate posture fields; and
 - `labels`: ordered risk label, anomaly label, and expected deterministic finding IDs.
 
-The supported protocol values are `SMTP`, `IMAP`, and `POP3`. The supported source types are `synthetic_feature`, `synthetic_pcap`, and `authorized_capture`. The current feature generator emits SMTP `synthetic_feature` records; the PCAP adapter emits `synthetic_pcap` records.
+The supported protocol values are `SMTP`, `IMAP`, and `POP3`. The supported source types are `synthetic_feature`, `synthetic_pcap`, and `authorized_capture`. The current feature generator emits SMTP `synthetic_feature` records; the PCAP adapter emits `synthetic_pcap` records. A `synthetic_pcap` record must include a non-empty `parameter_hash`, normally the SHA-256 hash of its immutable runtime profile; this value is provenance only and is not a model feature.
 
 The risk order is:
 
@@ -176,7 +204,7 @@ informational < low < medium < high < critical
 
 The possible result actions are `no_action`, `monitor`, `analyst_review`, `prioritize`, and `critical_review`.
 
-Pydantic rejects impossible values such as negative durations, packet counts, or byte counts. Successful TLS handshakes require negotiated TLS fields. Failed handshakes require those negotiated fields to be null. Certificate metadata is only accepted when `cert_present=true`. Synthetic records require a seed and scenario evidence; PCAP-derived records require a packet evidence reference. `validate_session(record, strict=True)` additionally rejects unknown top-level fields. The feature model keeps explicitly unknown feature fields available, but the model matrix only selects the documented input list.
+Pydantic rejects impossible values such as negative durations, packet counts, or byte counts. Successful TLS handshakes require negotiated TLS fields. Failed handshakes require those negotiated fields to be null. Certificate metadata is only accepted when `cert_present=true`. Synthetic records require a seed and scenario evidence; PCAP-derived records require a packet evidence reference; synthetic PCAP records also require `parameter_hash`. `validate_session(record, strict=True)` additionally rejects unknown top-level fields. The feature model keeps explicitly unknown feature fields available, but the model matrix only selects the documented input list.
 
 ### Evidence references
 
@@ -286,7 +314,7 @@ That seed drives Python’s `Random` instance. The record stores the derived see
 
 The `train`, `validation`, and `test` ratio fields are used when the corresponding environment IDs are set to `None` and `GroupShuffleSplit` must choose groups. The default path is therefore environment holdout, not a row-level 70/15/15 random split.
 
-The function rejects fewer than three environment groups and checks that both `environment_id` and `scenario_id` are disjoint across partitions. The split hash is based on the ordered session IDs in each partition. The current implementation does not yet expose explicit parameter-combination hashes or capture-level grouping as separate split keys; see [Known gaps](#known-gaps).
+The function rejects fewer than three environment groups and checks that both `environment_id` and `scenario_id` are disjoint across partitions. The split hash is based on the ordered session IDs in each partition. PCAP records now persist a parameter-combination hash, but the split function does not yet enforce parameter-hash or capture-ID isolation as separate grouping keys; see [Known gaps](#known-gaps).
 
 ### PCAP-mode dataset assembly
 
@@ -310,7 +338,7 @@ pcap_dataset = assemble_pcap_dataset(
 )
 ```
 
-Assembly validates that the mode is `synthetic_pcap`, the count matches, all configured environments are represented, scenario manifests match the records, and exactly one 64-character SHA-256 digest exists per capture ID. The current code does not generate legacy/weak PCAPs from a scenario manifest; the Docker lab currently produces only valid TLS 1.2+ traffic.
+Assembly validates that the mode is `synthetic_pcap`, the count matches, all configured environments are represented, scenario manifests match the records, and exactly one 64-character SHA-256 digest exists per capture ID. The lab runner supplies the runtime profile hash as each record’s `parameter_hash`. The current code does not guarantee a successful legacy/weak PCAP from a scenario manifest. The modern path may return `unsupported_in_lab`, and the uncommitted legacy profile is an experimental route that must be verified separately for each TLS/OpenSSL setting.
 
 ### Persisting a dataset run
 
@@ -339,7 +367,7 @@ A run is written as:
 └── checksums.sha256
 ```
 
-The run manifest stores the dataset and split hashes, mode, seed, environments, dependency versions, platform, and PCAP hashes when present. Validation rechecks the dataset hash, split hash, exact one-time partitioning, environment/scenario leakage, and saved-file checksums. Existing matching runs are reused; a conflicting run ID raises instead of overwriting data.
+The run manifest stores the dataset and split hashes, mode, seed, environments, dependency versions, platform, and PCAP hashes when present. Validation rechecks the dataset hash, split hash, exact one-time partitioning, environment/scenario leakage, and saved-file checksums. Existing matching runs are reused; a conflicting run ID raises instead of overwriting data. The profile-driven lab keeps its raw per-scenario runs separately under `datasets/lab/runs/<profile-hash>/`; `datasets.lab.runner.assemble_successful_runs` extracts those successful runs and passes them to `assemble_pcap_dataset`.
 
 ## Models
 
@@ -581,34 +609,73 @@ The current bundle does not yet write the specification’s `policy_version.json
 
 ## Docker synthetic mail lab
 
-The lab is optional and does not feed the ML models automatically. Run it from the repository root:
+The lab is optional and does not feed the ML models automatically. The supported workflow is the profile-driven runner, not a bare Compose invocation. Run one scenario from the repository root:
 
 ```bash
-docker compose -f datasets/lab/compose.yaml up --build --abort-on-container-exit
+uv run python -m datasets.lab.runner \
+  --scenario normal_tls13_valid \
+  --protocol SMTP \
+  --environment lab_seed_0001 \
+  --seed 420042
 ```
 
-The lab does the following:
+Runtime profiles currently resolve protocol-specific destination ports:
 
-1. The `mail-lab` container creates a one-day private CA and a `mail-lab` SAN certificate.
-2. It starts an asyncio SMTP server on port 2525 and IMAP server on port 1143.
-3. It starts `tcpdump` on the internal interface.
-4. The client performs one SMTP STARTTLS and one IMAP STARTTLS flow using the generated CA.
-5. The client writes a TLS key log for local dissection.
-6. The capture is written to `datasets/lab/captures/synthetic_mail.pcap`.
+- SMTP: 25;
+- IMAP: 143; and
+- POP3: 110.
 
-The Docker network is marked `internal: true`; the Compose services publish no host ports and send no messages to external recipients. The lab uses `NET_ADMIN` and `NET_RAW` only for its private capture process.
+The latest commit’s runner CLI exposes SMTP and IMAP. POP3 support is already present in the client, runtime-profile resolver, Compose service, and passive parser; the current working tree has a pending one-line runner choice-list change that exposes `--protocol POP3`. Check `git status` before relying on that uncommitted option. The same working tree contains a preliminary `legacy-lab` Compose profile and `Dockerfile.legacy`; its runner path selects `profile.service` and starts an in-container tcpdump process, but this follow-up remains uncommitted and is not covered by the current integration suite.
 
-Clean up the services after a run:
+`datasets.lab.runner.run_scenario` performs the following bounded workflow:
+
+1. Resolve a protocol-specific `lab-runtime-profile.v1` with a derived seed and profile SHA-256.
+2. Create an idempotent run directory at `datasets/lab/runs/<profile-hash>/`.
+3. Start `cert-init`, synthetic account provisioning, the digest-pinned `mail-core` Docker Mailserver, and the capture sidecar.
+4. Run the profile-driven SMTP, IMAP, or POP3 client.
+5. Stop the Compose project and finalize an explicit `success`, `unsupported_in_lab`, or `failed` manifest.
+6. Permit extraction only for successful runs; `extract_run` passes the profile hash as the PCAP record’s `parameter_hash`.
+
+The Compose topology is:
+
+```text
+cert-init + account-init
+          │
+          ├── mail-core (Postfix/Dovecot, POP3 enabled)
+          │       └── capture sidecar (ports 25/143/110)
+          └── legacy-lab (optional legacy OpenSSL profile)
+                  └── runner-started tcpdump capture
+
+client (SMTP/IMAP/POP3 STARTTLS) connects to the selected service
+```
+
+The services share an `internal: true` Docker network and publish no host ports. `account-init` creates only the synthetic `lab@mail-core.lab.test` account needed by Docker Mailserver setup; the current client performs STARTTLS handshakes and sends no message bodies or external mail. The Docker Mailserver image is pinned by digest in `compose.yaml`. The capture container uses `NET_ADMIN` and `NET_RAW` only for the private packet capture.
+
+A run directory contains, depending on status:
+
+```text
+datasets/lab/runs/<profile-hash>/
+├── runtime_profile.json
+├── run_manifest.json
+├── runtime_status.json            # when the service reports unsupported_in_lab
+├── capture.pcap                   # successful runs only
+├── ca.pem
+├── tls.keys
+├── certs/                         # generated server certificate/key
+└── mail-{config,data,state}/      # Docker Mailserver runtime state
+```
+
+`run_manifest.json` records the run schema/status, detail, PCAP hash when successful, profile, platform, and locally inspected image IDs. A missing or empty successful PCAP is converted to `failed`; an OpenSSL/TLS profile refusal is recorded as `unsupported_in_lab` and produces no feature row. Existing run directories are reused by profile hash rather than overwritten.
+
+The current profile matrix can exercise normal TLS 1.2/1.3, STARTTLS-unused/abort behavior, certificate posture variants, RSA-without-forward-secrecy, ChaCha20/unusual negotiation, and repeated-session behavior. Legacy TLS, 3DES, expired-certificate issuance, and renegotiation are explicitly allowed to become `unsupported_in_lab`. An uncommitted `legacy-lab` Compose profile, OpenSSL provider configuration, and runner service selection now exist, but they are preliminary and not covered by the current integration suite; the full 15-capture/5,010-row matrix remains design work in [`docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md`](docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md).
+
+Remove generated lab runs only when you intend to regenerate them:
 
 ```bash
-docker compose -f datasets/lab/compose.yaml down --remove-orphans
+rm -rf datasets/lab/runs/*
 ```
 
-Generated `ca.pem`, `ca.srl`, `tls.keys`, and `synthetic_mail.pcap` are ignored. Remove them only when you intend to regenerate the capture:
-
-```bash
-rm -f datasets/lab/captures/*
-```
+The older `datasets/lab/captures/synthetic_mail.pcap` fixture and its `mail-lab`/2525 harness remain ignored for compatibility with the `ml.pcap` module self-check. New captures should use the runner and `mail-core` profile paths.
 
 ### PCAP extraction
 
@@ -617,10 +684,13 @@ rm -f datasets/lab/captures/*
 - selects a TCP dissector for SMTP, IMAP, or POP3;
 - reads packet fields with `tshark`;
 - groups packets by `tcp.stream`;
-- identifies STARTTLS and server handshakes from packet data;
+- requires a client Finished message before marking a TLS handshake successful;
+- identifies STARTTLS and server handshake metadata from packet data;
 - maps known TLS/cipher/signature codes to canonical names;
 - extracts certificate metadata with OpenSSL/Python SSL; and
-- preserves stream, packet-range, and field evidence references.
+- preserves stream, packet-range, field, scenario, and parameter-hash provenance.
+
+The function requires `parameter_hash` for synthetic PCAP records. The runner passes `profile.profile_sha256`; direct callers must provide the equivalent immutable runtime-profile hash along with `destination_port` (25, 143, or 110 for the current lab).
 
 The parser chooses a host `tshark` binary first. If none exists, it requires Docker and an image named `lab-mail-lab:latest`:
 
@@ -628,35 +698,35 @@ The parser chooses a host `tshark` binary first. If none exists, it requires Doc
 docker build -t lab-mail-lab:latest datasets/lab
 ```
 
-A TLS key log is used when `tls.keys` is beside the PCAP. Certificate validity, chain validity, and hostname mismatch are populated only when both a trusted CA path and expected hostname are supplied; otherwise those fields remain null. Unknown TLS values are represented as `UNKNOWN`, not silently guessed.
+A TLS key log is used when `tls.keys` is beside the PCAP. Certificate validity, chain validity, and hostname mismatch are populated only when both a trusted CA path and expected hostname are supplied; otherwise those fields remain null. The current runner uses `mail-core` as the expected hostname. Unknown TLS values are represented as `UNKNOWN`, not silently guessed.
 
-Example:
+For the latest profile-driven path, use the runner handoff instead of hard-coding the old capture ports:
 
 ```python
+from datasets.lab.runner import extract_run, run_scenario
+from datasets.lab.scenarios import resolve_runtime_profile
 from ml.dataset import CATALOG
-from ml.pcap import extract_sessions
+from ml.schema import Protocol, ScenarioManifest
 
-scenario = next(
-    item["manifest"]
-    for item in CATALOG
-    if item["manifest"]["scenario_id"] == "normal_tls13_valid"
+manifest = ScenarioManifest.model_validate(CATALOG[0]["manifest"])
+profile = resolve_runtime_profile(
+    manifest,
+    Protocol.SMTP,
+    "lab_seed_0001",
+    420042,
+    0,
 )
-records = extract_sessions(
-    "datasets/lab/captures/synthetic_mail.pcap",
-    scenario=scenario,
-    environment_id="lab_smoke",
-    generator_seed=420042,
-    destination_port=2525,
-    trusted_ca_path="datasets/lab/captures/ca.pem",
-    expected_hostname="mail-lab",
-)
+run = run_scenario(profile)
+if run.status != "success":
+    raise RuntimeError(f"lab run was {run.status}: {run.detail}")
+records = extract_run(run)
 ```
 
-The adapter currently labels extracted rows as `synthetic_pcap` and does not create an `authorized_capture` dataset. It also has limited packet-derived handling for retries and renegotiations; the full scenario runner and legacy-compatible lab cases remain future work.
+The adapter labels extracted rows as `synthetic_pcap` and does not create an `authorized_capture` dataset. It still has limited packet-derived handling for retries and renegotiations; the profile runner is single-scenario, and the legacy-compatible service/full training matrix are future work.
 
 ## Git initialization and repository hygiene
 
-This checkout has been initialized as a Git repository on the `main` branch. No commit or remote is created automatically.
+This checkout is a Git repository on the `main` branch and currently tracks `origin/main`. The latest committed change is `375b5a8`; this README update and the lab follow-up files shown by `git status` are uncommitted.
 
 Inspect the initial state with:
 
@@ -668,7 +738,7 @@ The root `.gitignore` excludes:
 
 - `.venv`, bytecode, pytest/tool caches, coverage output, and OS files;
 - `.env` files and local credentials;
-- generated `models/`, `datasets/runs/`, `graphify-out/`, and `*.joblib` artifacts; and
+- generated `models/`, `datasets/runs/`, `datasets/lab/runs/`, `graphify-out/`, and `*.joblib` artifacts; and
 - lab captures, PCAP/PCAPNG files, and TLS key logs.
 
 `pyproject.toml`, `uv.lock`, source files, specs, tests, and the checked-in evaluation snapshots are not ignored. Review generated data before staging anything; do not force-add credentials, key logs, or captures containing sensitive traffic.
@@ -688,20 +758,20 @@ The authoritative target is [`docs/specs/spec.md`](docs/specs/spec.md). The spec
 - Deterministic rules with evidence and policy precedence.
 - TreeSHAP and Isolation Forest baseline-perturbation explanations.
 - Evaluation metrics, saved reports, feature-view ablations, and model/dataset checksums.
-- A private Docker SMTP/IMAP STARTTLS smoke lab and a tshark/OpenSSL PCAP adapter.
+- A profile-driven private Docker Mailserver lab with SMTP/IMAP/POP3 STARTTLS support and a tshark/OpenSSL PCAP adapter.
 
 ### Known gaps
 
 The following specification items are deliberately not described as complete:
 
 1. There is no packaged `securemailscope.ml` CLI or YAML configuration loader; callers use Python APIs and mappings.
-2. The feature generator does not create `synthetic_pcap` traffic. PCAP mode assembles already-extracted rows, while the lab only exercises valid TLS 1.2+ SMTP/IMAP STARTTLS.
-3. POP3 is represented in the schema and parser selection but is not exercised by the Docker lab. Postfix, Dovecot, Roundcube, scenario execution, and legacy-compatible endpoints are not present.
-4. Splitting checks environment and scenario overlap, but parameter-combination and capture grouping are not first-class persisted keys.
+2. The feature generator does not create `synthetic_pcap` traffic. PCAP mode assembles already-extracted rows; the profile runner creates one packet-backed scenario run at a time.
+3. The modern Docker Mailserver path, SMTP/IMAP/POP3 client support, protocol-specific profiles, and single-scenario runner are present. An uncommitted `legacy-lab` Compose profile and preliminary runner routing exist, but they are not covered by the current integration suite; Roundcube and the full batch matrix are not present.
+4. `parameter_hash` is now persisted and required for synthetic PCAP records, but splitting still checks only environment and scenario overlap; parameter-combination and capture grouping are not yet enforced as separate split keys.
 5. The model bundle omits `policy_version.json` and `metrics.json`; its manifest is smaller than the target artifact contract and does not enforce dependency-version compatibility.
 6. Evaluation does not yet include a per-scenario/family breakdown or calibration curves, and learned stacking is intentionally disabled.
 7. Explanations do not repeat every model/preprocessor/explanation-library version on each entry.
-8. The repository has two focused pytest tests, not the complete schema/dataset/preprocessing/model/policy/explainability/end-to-end matrix listed in the spec.
+8. The repository currently collects 15 focused pytest tests across four files, not the complete schema/dataset/preprocessing/model/policy/explainability/end-to-end matrix listed in the spec. Docker-gated integration tests may skip without a Docker daemon.
 
 These gaps are important boundaries: do not present the current lab capture or checked-in metrics as evidence that the full target system has been delivered.
 

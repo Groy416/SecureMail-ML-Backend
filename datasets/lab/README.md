@@ -1,10 +1,10 @@
-# Isolated synthetic SMTP/IMAP lab
+# Profile-driven synthetic mail lab
 
-This lab generates only SMTP or IMAP STARTTLS handshake traffic on an internal
-Docker network. It has no published ports, accounts, mailbox access, external
-recipients, or message bodies.
+This directory contains the isolated Docker lab used to produce packet-backed SMTP, IMAP, and POP3 STARTTLS observations. It is a capture fixture, not a production mail deployment and not a complete training-matrix generator.
 
-Run one scenario from the repository root:
+## Run one scenario
+
+From the repository root:
 
 ```bash
 uv run python -m datasets.lab.runner \
@@ -14,26 +14,97 @@ uv run python -m datasets.lab.runner \
   --seed 420042
 ```
 
-Use `--protocol IMAP` for an IMAP run. Each invocation writes
-`datasets/lab/runs/<profile-hash>/` with:
+The latest committed runner accepts `SMTP` and `IMAP`. POP3 support is implemented in `client.py`, `scenarios.py`, Compose, and the passive parser; the current working tree also contains a pending one-line runner change that exposes `--protocol POP3`. The same working tree adds a preliminary `legacy-lab` Compose profile, `Dockerfile.legacy`, and runner service selection/capture path; these follow-up changes are not yet committed or covered by the integration suite.
 
-- `runtime_profile.json`: the protocol-specific scenario manifest and derived seed.
-- `capture.pcap`: packet capture for successful runs only.
-- `run_manifest.json`: status, PCAP SHA-256, profile, platform, and local image IDs.
-- `ca.pem` and `tls.keys`: lab-only extraction inputs; both are ignored by Git.
+The runner resolves a protocol-specific `lab-runtime-profile.v1`, derives a stable seed, hashes the profile, creates `datasets/lab/runs/<profile-hash>/`, starts the Compose services, runs the client, tears the project down, and writes a status manifest. Use `--repetition N` to derive another profile hash and `--root PATH` to change the run root.
 
-Run status is explicit:
+Current internal ports are:
 
-- `success`: non-empty PCAP captured; it can be passed through `extract_run`.
-- `unsupported_in_lab`: the requested cryptographic setting was refused by the local OpenSSL/TLS runtime. No PCAP feature row is emitted.
-- `failed`: Docker, service, client, or capture failed. No PCAP feature row is emitted.
+- SMTP: 25
+- IMAP: 143
+- POP3: 110
 
-The current matrix handles normal TLS 1.3/1.2, STARTTLS-unused and aborted
-negotiation behavior, certificate-chain/hostname profiles, RSA-without-forward-
-secrecy, and repeated-session behavior. Legacy TLS, 3DES, weak RSA, and expired
-certificate requests are retained only when the runtime can create them;
-otherwise they are recorded as `unsupported_in_lab`.
+## Compose topology
 
-A trainable `synthetic_pcap` dataset still needs successful records spanning
-three isolated environments and all five risk labels. The current smoke run is
-integration evidence, not a model-training dataset.
+```text
+cert-init + account-init
+          │
+          ├── mail-core (digest-pinned Docker Mailserver)
+          │       └── capture sidecar
+          └── legacy-lab (optional legacy OpenSSL profile)
+                  └── runner-started tcpdump capture
+
+client (SMTP/IMAP/POP3 STARTTLS) connects to the selected service
+```
+
+- `cert-init` provisions a run-scoped private CA and server certificate.
+- `account-init` creates only the synthetic `lab@mail-core.lab.test` account required by Docker Mailserver setup.
+- `mail-core` runs the pinned Docker Mailserver image with Postfix/Dovecot and POP3 enabled.
+- `capture` shares the mail service network namespace and captures TCP ports 25, 143, and 110.
+- `client` selects the protocol and TLS behavior from `runtime_profile.json`.
+
+The network is `internal: true` and no host ports are published. The client performs STARTTLS handshakes; it does not send message bodies or deliver external mail. Capture requires `NET_ADMIN` and `NET_RAW` inside the isolated capture container.
+
+## Run artifacts
+
+Successful and unsupported runs are stored under the profile hash:
+
+```text
+datasets/lab/runs/<profile-hash>/
+├── runtime_profile.json
+├── run_manifest.json
+├── runtime_status.json            # when a service reports unsupported_in_lab
+├── capture.pcap                   # success only
+├── ca.pem
+├── tls.keys
+├── certs/                         # generated server certificate/key
+└── mail-{config,data,state}/      # Docker Mailserver runtime state
+```
+
+`run_manifest.json` contains the `lab-run.v1` status, detail, PCAP SHA-256 when present, runtime profile, platform, and locally inspected image IDs. `finalize_run` turns a missing/empty successful PCAP into `failed`. Profiles rejected by OpenSSL/TLS are recorded as `unsupported_in_lab` and must not produce a feature row.
+
+Runs are idempotent by profile hash: an existing manifest is returned rather than overwritten. All run directories and key/capture material are ignored by Git. Remove them only when regenerating:
+
+```bash
+rm -rf datasets/lab/runs/*
+```
+
+## Scenario profiles
+
+`scenarios.py` converts a catalog `ScenarioManifest` plus protocol, environment, seed, and repetition into an immutable runtime profile. The profile includes:
+
+- protocol-specific destination port;
+- TLS minimum and maximum versions;
+- optional cipher string;
+- client mode (`starttls`, `unused_starttls`, or `abort_starttls`);
+- certificate mode and validity period;
+- connection count and deterministic command delay; and
+- `profile_sha256`, which is passed to PCAP extraction as `Provenance.parameter_hash`.
+
+The profile resolver can represent normal TLS 1.2/1.3, STARTTLS-unused/abort behavior, certificate-chain/hostname/weak-key modes, RSA key exchange without forward secrecy, unusual ciphers, repeated connections, and renegotiation requests. The Compose file has an optional `legacy-lab` profile, and the current uncommitted runner selects it from the profile’s `service` field and starts tcpdump inside that container. This path is preliminary and not covered by the integration suite. Local OpenSSL or the selected mail server may reject TLS 1.0/1.1, 3DES, expired certificates, or renegotiation; those outcomes remain explicit `unsupported_in_lab` states.
+
+## Extract and assemble
+
+Only successful runs can be extracted:
+
+```python
+from datasets.lab.runner import assemble_successful_runs, extract_run
+
+records = extract_run(run)
+# Pass successful LabRun objects to assemble_successful_runs(...) when building
+# a synthetic_pcap DatasetArtifact across environments.
+```
+
+`extract_run` uses the runtime profile’s scenario, environment, derived seed, parameter hash, destination port, run CA, and `mail-core` hostname. `ml.pcap.extract_sessions` then requires a client Finished message for a successful TLS handshake and preserves packet-range evidence. `assemble_successful_runs` excludes unsupported/failed runs and supplies capture hashes and scenario manifests to `ml.dataset.assemble_pcap_dataset`.
+
+The runner handles one scenario per invocation. The planned 15-capture, 5,010-row training matrix and the remaining hardened legacy-service workflow are documented in [`docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md`](../../docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md) and are not implemented as a verified batch workflow by this runner.
+
+## Direct parser fallback
+
+`ml.pcap` prefers a host `tshark`. If it is unavailable, build the parser image expected by the adapter:
+
+```bash
+docker build -t lab-mail-lab:latest datasets/lab
+```
+
+The older `datasets/lab/captures/synthetic_mail.pcap` fixture and `entrypoint.sh` remain for compatibility with the module self-check. New captures should use `datasets.lab.runner` and the profile-scoped run directory.

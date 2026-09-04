@@ -118,20 +118,33 @@ def run_scenario(profile: LabRuntimeProfile, root: str | Path = "datasets/lab/ru
         **os.environ,
         "LAB_RUN_DIR": str(run_path.resolve()),
         "PCAP_PATH": f"/captures/{PCAP_FILENAME}",
+        "MAIL_HOST": profile.service,
     }
     compose = [
         "docker", "compose", "-f", str(COMPOSE_FILE), "--project-name",
         f"sml{profile.profile_sha256[:12]}",
     ]
+    services = ["mail-core", "capture"] if profile.service == "mail-core" else ["legacy-lab"]
     infrastructure = subprocess.run(
-        [*compose, "up", "--build", "--detach", "mail-core", "capture"],
+        [*compose, "--profile", "legacy", "up", "--build", "--detach", "--wait", *services],
         text=True,
         capture_output=True,
         env=environment,
     )
+    legacy_capture = None
+    if infrastructure.returncode == 0 and profile.service == "legacy-lab":
+        container_id = subprocess.run(
+            [*compose, "ps", "-q", "legacy-lab"], text=True, capture_output=True, env=environment
+        ).stdout.strip()
+        if container_id:
+            legacy_capture = subprocess.Popen(
+                ["docker", "exec", container_id, "tcpdump", "-U", "-i", "eth0", "-w", f"/captures/{PCAP_FILENAME}", "tcp port 25 or tcp port 143 or tcp port 110"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+    client_service = "legacy-client" if profile.service == "legacy-lab" else "client"
     completed = (
         subprocess.run(
-            [*compose, "run", "--rm", "--no-deps", "client"],
+            [*compose, "run", "--rm", "--no-deps", client_service],
             text=True,
             capture_output=True,
             env=environment,
@@ -139,6 +152,9 @@ def run_scenario(profile: LabRuntimeProfile, root: str | Path = "datasets/lab/ru
         if infrastructure.returncode == 0
         else infrastructure
     )
+    if legacy_capture is not None:
+        legacy_capture.terminate()
+        legacy_capture.wait(timeout=10)
     subprocess.run(
         [*compose, "down", "--remove-orphans"],
         text=True,
@@ -222,7 +238,7 @@ def _catalog_manifest(scenario_id: str) -> ScenarioManifest:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--scenario", required=True)
-    parser.add_argument("--protocol", choices=[protocol.value for protocol in (Protocol.SMTP, Protocol.IMAP)], required=True)
+    parser.add_argument("--protocol", choices=[protocol.value for protocol in Protocol], required=True)
     parser.add_argument("--environment", required=True)
     parser.add_argument("--seed", required=True, type=int)
     parser.add_argument("--repetition", type=int, default=0)

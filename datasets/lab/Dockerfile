@@ -6,5 +6,5 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY entrypoint.sh capture.sh server.py certs.py client.py /app/
+COPY entrypoint.sh capture.sh server.py certs.py client.py openssl-legacy.cnf /app/
 RUN chmod +x /app/entrypoint.sh /app/capture.sh

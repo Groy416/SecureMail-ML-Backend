@@ -7,11 +7,12 @@ import poplib
 import smtplib
 import socket
 import ssl
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
-HOST = "mail-core"
+HOST = os.environ.get("MAIL_HOST", "mail-core")
 TLS_VERSION = {
     "TLS1.0": ssl.TLSVersion.TLSv1,
     "TLS1.1": ssl.TLSVersion.TLSv1_1,
@@ -130,6 +131,20 @@ def pop3_starttls(profile: dict[str, Any]) -> None:
             pass
 
 
+def legacy_starttls(profile: dict[str, Any]) -> None:
+    protocol = profile["protocol"].lower()
+    command = [
+        "openssl", "s_client", "-connect", f"{HOST}:{profile['destination_port']}",
+        "-starttls", protocol, "-tls1_2", "-cipher", profile["cipher_string"],
+        "-brief",
+    ]
+    completed = subprocess.run(command, input="Q\n", text=True, capture_output=True, timeout=15)
+    if completed.returncode:
+        Path("/captures/runtime_status.json").write_text(
+            json.dumps({"status": "unsupported_in_lab", "detail": completed.stderr[-1000:]}, sort_keys=True) + "\n"
+        )
+
+
 def main() -> None:
     profile = load_runtime_profile(
         os.environ.get("RUNTIME_PROFILE_PATH", "/captures/runtime_profile.json")
@@ -140,7 +155,7 @@ def main() -> None:
         "POP3": pop3_starttls,
     }[profile["protocol"]]
     for _ in range(int(profile["connection_count"])):
-        handler(profile)
+        (legacy_starttls if profile.get("service") == "legacy-lab" else handler)(profile)
         time.sleep(int(profile["command_delay_milliseconds"]) / 1000)
     time.sleep(1)
 

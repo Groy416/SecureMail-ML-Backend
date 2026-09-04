@@ -1,0 +1,4 @@
+FROM docker.io/mailserver/docker-mailserver@sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f
+RUN apt-get update && apt-get install --no-install-recommends -y tcpdump && rm -rf /var/lib/apt/lists/*
+COPY openssl-legacy.cnf /etc/ssl/openssl-legacy.cnf
+ENV OPENSSL_CONF=/etc/ssl/openssl-legacy.cnf

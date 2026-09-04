@@ -79,6 +79,7 @@ class LabRuntimeProfile(ContractModel):
     connection_count: int = Field(default=1, gt=0)
     requires_renegotiation: bool = False
     command_delay_milliseconds: int = Field(ge=0, le=100)
+    service: Literal["mail-core", "legacy-lab"] = "mail-core"
     profile_sha256: str
 
     @model_validator(mode="after")
@@ -147,6 +148,7 @@ def resolve_runtime_profile(
         "connection_count": 1,
         "requires_renegotiation": False,
         "command_delay_milliseconds": derived_seed % 21,
+        "service": "legacy-lab" if base_id in {"deprecated_tls", "weak_cipher", "weak_rsa_key", "expired_certificate", "combined_critical_weaknesses"} else "mail-core",
     }
     runtime.update(_PROFILE_OVERRIDES.get(base_id, {}))
     if runtime["client_mode"] == "unused_starttls":
