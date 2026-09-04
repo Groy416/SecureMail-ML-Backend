@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from ml.product import PayloadRejected, inference_record, load_runtime, score_session
+from ml.product import (
+    DEFAULT_BUNDLE,
+    PayloadRejected,
+    inference_record,
+    load_runtime,
+    score_session,
+)
 from ml.schema import RiskLabel, SourceType
 
 
@@ -63,6 +69,10 @@ def _authorized_payload(**feature_overrides: object) -> dict[str, object]:
     }
 
 
+def test_product_defaults_to_the_packet_backed_shadow_bundle() -> None:
+    assert Path(DEFAULT_BUNDLE) == Path("models/grouped-105-capture-pcap")
+
+
 def test_product_rejects_mail_body_payloads() -> None:
     payload = _authorized_payload()
     payload["body"] = "please ignore this message"
@@ -79,7 +89,7 @@ def test_product_accepts_authorized_capture_without_training_labels() -> None:
 
 
 def test_product_scores_frozen_bundle_with_rules() -> None:
-    bundle_dir = Path("models/grouped-105-capture")
+    bundle_dir = Path("models/grouped-105-capture-pcap")
     if not (bundle_dir / "manifest.json").is_file():
         pytest.skip("frozen production bundle is not present")
     bundle, calibration = load_runtime(bundle_dir)

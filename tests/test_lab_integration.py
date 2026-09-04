@@ -34,7 +34,7 @@ def test_hostname_mismatch_is_packet_backed_and_not_a_completed_handshake(tmp_pa
     assert records[0].features.cert_valid is False
 
 
-@pytest.mark.parametrize("protocol", [Protocol.SMTP, Protocol.IMAP])
+@pytest.mark.parametrize("protocol", [Protocol.SMTP, Protocol.IMAP, Protocol.POP3])
 def test_valid_profile_runs_to_packet_backed_session(tmp_path, protocol: Protocol) -> None:
     if not _docker_available():
         pytest.skip("Docker daemon is unavailable")

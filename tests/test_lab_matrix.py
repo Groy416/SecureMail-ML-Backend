@@ -18,7 +18,26 @@ from datasets.lab.matrix import (
 from ml.dataset import split_dataset
 from ml.fusion import highest_rule_severity
 from ml.rules import extract_rule_findings
-from ml.schema import RiskLabel
+from ml.schema import Protocol, RiskLabel
+
+
+def test_training_matrix_uses_the_current_35_slot_contract() -> None:
+    profiles = build_training_matrix(420042)
+    repeated = build_training_matrix(420042)
+    different_seed = build_training_matrix(420043)
+
+    assert len(MATRIX_SLOTS) == 35
+    assert len(profiles) == 245
+    assert MATRIX_SESSIONS == 17_885
+    assert len({profile.profile_sha256 for profile in profiles}) == 245
+    assert len({profile.scenario.scenario_id for profile in profiles}) == 245
+    assert {profile.protocol for profile in profiles} == set(Protocol)
+    assert [profile.profile_sha256 for profile in profiles] == [
+        profile.profile_sha256 for profile in repeated
+    ]
+    assert [profile.profile_sha256 for profile in profiles] != [
+        profile.profile_sha256 for profile in different_seed
+    ]
 
 
 def test_training_matrix_keeps_train_and_eval_as_separate_sets() -> None:

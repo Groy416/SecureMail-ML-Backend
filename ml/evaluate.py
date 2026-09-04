@@ -21,7 +21,7 @@ from ml.calibration import (
     normalized_anomaly_score,
 )
 from ml.dataset import SplitArtifact, records_hash
-from ml.fusion import fuse_session
+from ml.fusion import FusionConfig, fuse_session
 from ml.models import (
     MODEL_BUNDLE_VERSION,
     RISK_LABELS,
@@ -31,7 +31,7 @@ from ml.models import (
     predict_model_outputs,
 )
 from ml.rules import extract_rule_findings
-from ml.schema import RiskLabel
+from ml.schema import RiskLabel, SessionFeatureRecord
 
 EVALUATION_VERSION = "evaluation.v1"
 
@@ -47,7 +47,9 @@ class EvaluationReport:
     test_environment_ids: tuple[str, ...]
     classifiers: dict[str, dict[str, Any]]
     isolation_forest: dict[str, Any]
+    model_fusion: dict[str, Any]
     fusion: dict[str, Any]
+    scenario_breakdown: dict[str, dict[str, Any]]
     limitations: tuple[str, ...]
 
 
@@ -179,10 +181,51 @@ def _score_distribution(values: np.ndarray) -> dict[str, float] | None:
     }
 
 
+def _scenario_breakdown(
+    records: list[SessionFeatureRecord],
+    model_results: list,
+    policy_results: list,
+    anomaly_predictions: np.ndarray,
+) -> dict[str, dict[str, Any]]:
+    groups: dict[str, list[int]] = {}
+    for index, record in enumerate(records):
+        groups.setdefault(record.provenance.scenario_id, []).append(index)
+    breakdown: dict[str, dict[str, Any]] = {}
+    for scenario_id, indexes in sorted(groups.items()):
+        labels = np.asarray(
+            [RISK_LABEL_TO_INDEX[records[index].labels.risk_label] for index in indexes],
+            dtype=int,
+        )
+        model_predictions = np.asarray(
+            [RISK_LABEL_TO_INDEX[model_results[index].risk.risk_class] for index in indexes],
+            dtype=int,
+        )
+        policy_predictions = np.asarray(
+            [RISK_LABEL_TO_INDEX[policy_results[index].risk.risk_class] for index in indexes],
+            dtype=int,
+        )
+        breakdown[scenario_id] = {
+            "session_count": len(indexes),
+            "true_label_counts": {
+                label.value: int(np.sum(labels == label_index))
+                for label_index, label in enumerate(RISK_LABELS)
+                if np.any(labels == label_index)
+            },
+            "model_fusion": _label_metrics(model_predictions, labels),
+            "policy_fusion": _label_metrics(policy_predictions, labels),
+            "isolation_forest": {
+                "detection_rate": float(anomaly_predictions[indexes].mean()),
+            },
+        }
+    return breakdown
+
+
 def evaluate_bundle(
     bundle: ModelBundle,
     calibration: CalibrationState,
     split: SplitArtifact,
+    *,
+    fusion_config: FusionConfig | None = None,
 ) -> EvaluationReport:
     if bundle.version != MODEL_BUNDLE_VERSION:
         raise ValueError("unsupported model bundle version")
@@ -205,12 +248,26 @@ def evaluate_bundle(
             labels,
         ),
     }
-    fused_results = [
-        fuse_session(record, output, calibration, extract_rule_findings(record))
+    model_fusion_results = [
+        fuse_session(record, output, calibration, config=fusion_config)
         for record, output in zip(split.test, outputs, strict=True)
     ]
-    fusion_labels = np.asarray(
-        [RISK_LABEL_TO_INDEX[result.risk.risk_class] for result in fused_results],
+    policy_fusion_results = [
+        fuse_session(
+            record,
+            output,
+            calibration,
+            extract_rule_findings(record),
+            config=fusion_config,
+        )
+        for record, output in zip(split.test, outputs, strict=True)
+    ]
+    model_fusion_labels = np.asarray(
+        [RISK_LABEL_TO_INDEX[result.risk.risk_class] for result in model_fusion_results],
+        dtype=int,
+    )
+    policy_fusion_labels = np.asarray(
+        [RISK_LABEL_TO_INDEX[result.risk.risk_class] for result in policy_fusion_results],
         dtype=int,
     )
     raw_scores = np.asarray(
@@ -243,6 +300,7 @@ def evaluate_bundle(
             ),
         }
     else:
+        anomaly_predictions = np.zeros(len(raw_scores), dtype=int)
         isolation_metrics = {
             "status": "unavailable:degenerate_normal_calibration",
             "threshold": None,
@@ -253,6 +311,7 @@ def evaluate_bundle(
         }
     isolation_metrics.update(
         {
+            "contamination": bundle.config.isolation_contamination,
             "normal": _score_distribution(raw_scores[anomaly_labels == 0]),
             "anomalous": _score_distribution(raw_scores[anomaly_labels == 1]),
         }
@@ -269,7 +328,14 @@ def evaluate_bundle(
         ),
         classifiers=classifiers,
         isolation_forest=isolation_metrics,
-        fusion=_label_metrics(fusion_labels, labels),
+        model_fusion=_label_metrics(model_fusion_labels, labels),
+        fusion=_label_metrics(policy_fusion_labels, labels),
+        scenario_breakdown=_scenario_breakdown(
+            split.test,
+            model_fusion_results,
+            policy_fusion_results,
+            anomaly_predictions,
+        ),
         limitations=(
             "Scores are synthetic-lab-only and must not be presented as production performance.",
             "Class-probability calibration is isotonic and may overfit this small synthetic calibration partition.",

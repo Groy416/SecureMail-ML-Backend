@@ -7,6 +7,7 @@ import pytest
 from ml.dataset import (
     SplitArtifact,
     assemble_pcap_dataset,
+    load_dataset_run,
     records_hash,
     split_dataset,
     validate_dataset_run,
@@ -192,6 +193,59 @@ def test_pcap_dataset_persists_capture_hashes_and_scenario_manifests(tmp_path) -
     assert validate_dataset_run(run.path)["record_count"] == len(records)
     assert (run.path / "pcap_manifest.json").is_file()
     assert (run.path / "scenario_manifest.jsonl").is_file()
+
+
+def test_dataset_run_round_trips_through_the_persisted_loader(tmp_path) -> None:
+    labels = tuple(RiskLabel)
+    environments = ("lab_train", "lab_calibration", "lab_test")
+    manifests = [
+        _manifest(f"{environment}-{label.value}", label)
+        for environment in environments
+        for label in labels
+    ]
+    records = [
+        _record(manifest, environment)
+        for environment in environments
+        for manifest in manifests
+        if manifest.scenario_id.startswith(environment)
+    ]
+    capture_hashes = {
+        record.provenance.capture_id: hashlib.sha256(
+            record.provenance.capture_id.encode()
+        ).hexdigest()
+        for record in records
+    }
+    dataset = assemble_pcap_dataset(
+        {
+            "mode": "synthetic_pcap",
+            "master_seed": 7,
+            "session_count": len(records),
+            "environment_ids": environments,
+            "calibration_environment_id": "lab_calibration",
+            "evaluation_environment_id": "lab_test",
+        },
+        records,
+        manifests,
+        capture_hashes,
+    )
+    split = split_dataset(
+        dataset,
+        {
+            "random_seed": 7,
+            "validation_environment_id": "lab_calibration",
+            "test_environment_id": "lab_test",
+        },
+    )
+    run = write_dataset_run(dataset, split, tmp_path)
+
+    loaded_dataset, loaded_split = load_dataset_run(run.path)
+
+    assert loaded_dataset.sha256 == dataset.sha256
+    assert loaded_dataset.pcap_sha256 == dataset.pcap_sha256
+    assert loaded_split.sha256 == split.sha256
+    assert [record.provenance.session_id for record in loaded_split.test] == [
+        record.provenance.session_id for record in split.test
+    ]
 
 
 def test_training_rejects_an_incomplete_risk_label_set() -> None:

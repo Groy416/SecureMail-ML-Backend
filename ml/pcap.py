@@ -56,6 +56,7 @@ _CIPHER_SUITE = {
     "0xc030": "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
 }
 _SIGNATURE_ALGORITHM = {"0x0804": "RSA-PSS", "0x0401": "SHA256-RSA", "0x0501": "SHA384-RSA"}
+EXTRACTOR_VERSION = "pcap-extractor.v1"
 
 
 class PcapExtractionUnavailable(RuntimeError):

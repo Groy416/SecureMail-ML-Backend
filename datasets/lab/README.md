@@ -97,7 +97,7 @@ records = extract_run(run)
 
 `extract_run` uses the runtime profile’s scenario, environment, derived seed, parameter hash, destination port, run CA, and `mail-core` hostname. `ml.pcap.extract_sessions` then requires a client Finished message for a successful TLS handshake and preserves packet-range evidence. `assemble_successful_runs` excludes unsupported/failed runs and supplies capture hashes and scenario manifests to `ml.dataset.assemble_pcap_dataset`.
 
-The runner handles one scenario per invocation. The planned 15-capture, 5,010-row training matrix and the remaining hardened legacy-service workflow are documented in [`docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md`](../../docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md) and are not implemented as a verified batch workflow by this runner.
+The runner handles one scenario per invocation; `scripts/train_evaluate_grouped_matrix.py` is the batch entry point. The current matrix has 35 scenario slots across 245 profiles: 105 train captures, 35 calibration captures, and 105 test captures, with 73 sessions per capture and 17,885 requested sessions total. The packet-backed MVP workflow is documented in [`docs/superpowers/plans/2026-09-04-mvp-synthetic-pcap-shadow.md`](../../docs/superpowers/plans/2026-09-04-mvp-synthetic-pcap-shadow.md).
 
 ## Direct parser fallback
 

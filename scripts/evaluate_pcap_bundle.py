@@ -1,32 +1,39 @@
-"""Evaluate the grouped 69-capture lab matrix against its saved bundle."""
+"""Evaluate a persisted packet-backed training run against its saved bundle."""
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from datasets.lab.matrix import generate_grouped_feature_dataset
 from ml.calibration import load_calibration_state
-from ml.dataset import split_dataset
+from ml.dataset import load_dataset_run
 from ml.evaluate import evaluate_bundle, save_evaluation_report
 from ml.models import load_model_bundle
 
-SEED = 420042
-BUNDLE = "models/grouped-105-capture"
+BUNDLE = Path("models/grouped-105-capture-pcap")
 
-dataset = generate_grouped_feature_dataset(SEED)
-split = split_dataset(
-    dataset,
-    {
-        "random_seed": SEED,
-        "validation_environment_id": "lab_calibration",
-        "test_environment_id": "lab_test",
-    },
-)
-report = evaluate_bundle(
-    load_model_bundle(BUNDLE),
-    load_calibration_state(BUNDLE),
-    split,
-)
-print(save_evaluation_report(report, "evals"))
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset-run", required=True, type=Path)
+    parser.add_argument("--bundle", default=BUNDLE, type=Path)
+    parser.add_argument("--output-root", default=Path("evals"), type=Path)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    _, split = load_dataset_run(args.dataset_run)
+    report = evaluate_bundle(
+        load_model_bundle(args.bundle),
+        load_calibration_state(args.bundle),
+        split,
+    )
+    print(save_evaluation_report(report, args.output_root))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

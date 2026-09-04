@@ -7,15 +7,23 @@ import os
 import platform
 import shutil
 import subprocess
+from collections import Counter
 from dataclasses import dataclass
+from importlib.metadata import version
 from pathlib import Path
 from typing import Literal, Sequence
 
-from datasets.lab.matrix import build_training_matrix
+from datasets.lab.matrix import (
+    ENVIRONMENTS,
+    MATRIX_CAPTURES,
+    MATRIX_SESSIONS,
+    SESSIONS_PER_CAPTURE,
+    build_training_matrix,
+)
 from datasets.lab.scenarios import LabRuntimeProfile, resolve_runtime_profile
-from ml.dataset import CATALOG, DatasetConfig, assemble_pcap_dataset
-from ml.pcap import extract_sessions
-from ml.schema import Protocol, ScenarioManifest, SessionFeatureRecord
+from ml.dataset import CATALOG, DatasetArtifact, DatasetConfig, assemble_pcap_dataset
+from ml.pcap import EXTRACTOR_VERSION, extract_sessions
+from ml.schema import Protocol, RiskLabel, ScenarioManifest, SessionFeatureRecord
 
 LAB_ROOT = Path(__file__).parent
 COMPOSE_FILE = LAB_ROOT / "compose.yaml"
@@ -39,12 +47,48 @@ def _file_hash(path: Path) -> str:
 def _image_ids() -> list[str]:
     if not shutil.which("docker"):
         return []
-    completed = subprocess.run(
-        ["docker", "image", "inspect", "lab-mail-lab:latest", "--format", "{{.Id}}"],
-        text=True,
-        capture_output=True,
-    )
-    return [line for line in completed.stdout.splitlines() if line]
+    images = ("lab-mail-lab:latest", "docker.io/mailserver/docker-mailserver")
+    image_ids: list[str] = []
+    for image in images:
+        completed = subprocess.run(
+            ["docker", "image", "inspect", image, "--format", "{{.Id}}"],
+            text=True,
+            capture_output=True,
+        )
+        image_ids.extend(line for line in completed.stdout.splitlines() if line)
+    return sorted(set(image_ids))
+
+
+def _dependency_versions() -> dict[str, str]:
+    return {
+        package: version(package)
+        for package in ("numpy", "pandas", "pyarrow", "pydantic", "scikit-learn", "xgboost")
+    }
+
+
+def _source_revision() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=LAB_ROOT.parent.parent,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    return completed.stdout.strip() or None
+
+
+def _scenario_hash(profile: LabRuntimeProfile | None) -> str | None:
+    if profile is None:
+        return None
+    payload = json.dumps(
+        profile.scenario.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _load_profile(path: Path) -> LabRuntimeProfile | None:
@@ -75,6 +119,12 @@ def finalize_run(
         "detail": detail,
         "pcap_sha256": pcap_sha256,
         "profile": profile.model_dump(mode="json") if profile else None,
+        "profile_sha256": profile.profile_sha256 if profile else None,
+        "parameter_hash": profile.profile_sha256 if profile else None,
+        "scenario_manifest_sha256": _scenario_hash(profile),
+        "extractor_version": EXTRACTOR_VERSION,
+        "dependency_versions": _dependency_versions(),
+        "source_revision": _source_revision(),
         "platform": platform.platform(),
         "container_image_ids": _image_ids(),
     }
@@ -82,6 +132,76 @@ def finalize_run(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n"
     )
     return LabRun(run_path, status, pcap_sha256, detail, profile)
+
+
+def run_training_matrix(
+    master_seed: int,
+    root: str | Path = "datasets/lab/runs",
+) -> tuple[LabRun, ...]:
+    profiles = build_training_matrix(master_seed)
+    if len(profiles) != MATRIX_CAPTURES:
+        raise ValueError(f"training matrix requires {MATRIX_CAPTURES} profiles")
+    runs: list[LabRun] = []
+    for profile in profiles:
+        result = run_scenario(profile, root)
+        if result.status == "failed":
+            result = run_scenario(profile, Path(root) / "retry-1")
+        runs.append(result)
+    return tuple(runs)
+
+
+def validate_training_matrix(
+    runs: Sequence[LabRun],
+    dataset: DatasetArtifact,
+) -> None:
+    if len(runs) != MATRIX_CAPTURES:
+        raise ValueError(f"training matrix requires {MATRIX_CAPTURES} profiles")
+    successful = [run for run in runs if run.status == "success"]
+    if len(successful) != MATRIX_CAPTURES:
+        raise ValueError(
+            f"training matrix requires {MATRIX_CAPTURES} successful captures"
+        )
+    profiles = [run.profile for run in successful]
+    if any(profile is None for profile in profiles):
+        raise ValueError("successful capture is missing its runtime profile")
+    if len({profile.profile_sha256 for profile in profiles if profile}) != MATRIX_CAPTURES:
+        raise ValueError("training matrix profiles must be unique")
+    if dataset.mode != "synthetic_pcap":
+        raise ValueError("training matrix dataset must be synthetic_pcap")
+    if len(dataset.records) != MATRIX_SESSIONS:
+        raise ValueError(
+            f"training matrix requires {MATRIX_SESSIONS} extracted records"
+        )
+
+    capture_counts = Counter(record.provenance.capture_id for record in dataset.records)
+    if len(capture_counts) != MATRIX_CAPTURES or any(
+        count != SESSIONS_PER_CAPTURE for count in capture_counts.values()
+    ):
+        raise ValueError(
+            f"each capture must contain {SESSIONS_PER_CAPTURE} extracted sessions"
+        )
+    for environment_id in ENVIRONMENTS:
+        labels = {
+            record.labels.risk_label
+            for record in dataset.records
+            if record.provenance.environment_id == environment_id
+        }
+        if labels != set(RiskLabel):
+            raise ValueError(
+                f"{environment_id} must contain all five risk labels"
+            )
+
+    for attribute in ("environment_id", "scenario_id", "capture_id", "parameter_hash"):
+        groups = [
+            {
+                getattr(record.provenance, attribute)
+                for record in dataset.records
+                if record.provenance.environment_id == environment_id
+            }
+            for environment_id in ENVIRONMENTS
+        ]
+        if any(left & right for index, left in enumerate(groups) for right in groups[index + 1:]):
+            raise ValueError(f"{attribute} leakage detected across matrix environments")
 
 
 def _existing_run(path: Path) -> LabRun | None:
@@ -213,6 +333,11 @@ def assemble_successful_runs(
         profile = run.profile or _load_profile(run.path)
         if profile is None:
             raise ValueError("successful lab run is missing its runtime profile")
+        if len(extracted) != profile.connection_count:
+            raise ValueError(
+                f"{profile.scenario.scenario_id} expected "
+                f"{profile.connection_count} extracted sessions; got {len(extracted)}"
+            )
         for record in extracted:
             capture_id = record.provenance.capture_id
             existing_hash = pcap_sha256.setdefault(capture_id, run.pcap_sha256)

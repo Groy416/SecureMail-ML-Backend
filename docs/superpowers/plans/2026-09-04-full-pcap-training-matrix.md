@@ -1,10 +1,12 @@
 # Full PCAP Training Matrix Implementation Plan
 
+> **Status:** Superseded by [`2026-09-04-mvp-synthetic-pcap-shadow.md`](2026-09-04-mvp-synthetic-pcap-shadow.md). The active matrix is 35 scenario slots, 245 profiles, and 17,885 sessions.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce a 5,010-row, packet-backed SMTP/IMAP/POP3 dataset from isolated Postfix/Dovecot and legacy services, then train, calibrate, evaluate, save, and reload the ML bundle.
+**Goal:** Historical plan for producing a packet-backed SMTP/IMAP/POP3 dataset from isolated Postfix/Dovecot and legacy services, then training, calibrating, evaluating, saving, and reloading the ML bundle.
 
-**Architecture:** The host runner creates immutable, protocol-specific profiles and per-capture manifests. Compose runs `docker-mailserver` for Postfix/Dovecot normal scenarios and an isolated legacy-compatible service for refused crypto profiles. Each of 15 captures contains 334 deterministic client sessions; successful captures are extracted, grouped, persisted, and fed into the existing model pipeline.
+**Architecture:** The active plan uses the host runner's immutable protocol profiles and current 35-slot matrix. Compose runs `docker-mailserver` for Postfix/Dovecot normal scenarios and an isolated legacy-compatible service for refused crypto profiles. Each of 245 profiles contains 73 deterministic client sessions; successful captures are extracted, grouped, persisted, and fed into the existing model pipeline.
 
 **Tech Stack:** Python 3.11, Pydantic, Docker Compose, Docker Mailserver (Postfix/Dovecot), OpenSSL, tcpdump, tshark, scikit-learn, XGBoost, pytest.
 
@@ -17,9 +19,9 @@
 - A weak/legacy/expired profile that cannot be observed must be `unsupported_in_lab`; it produces no session row.
 - Record source type, scenario-manifest hash, runtime-profile parameter hash, capture hash, extractor version, dependency versions, and source revision when available.
 - Group split isolation covers environment ID, scenario ID, parameter-combination hash, and capture ID.
-- Generate exactly 15 successful captures × 334 sessions = 5,010 rows before training. Do not pad rows or copy a capture across splits.
+- Generate exactly 245 successful captures × 73 sessions = 17,885 rows before training. Do not pad rows or copy a capture across splits.
 - Evaluation is synthetic-only and must retain/report the fusion critical-recall result without test-set tuning.
-- This directory has no Git metadata. Do not initialize Git, commit, or claim Git-based review.
+- This repository has Git metadata. Preserve existing staged changes and do not claim verification that was not run.
 
 ---
 
@@ -48,11 +50,11 @@
 
 **Interfaces:**
 - Produces: `resolve_runtime_profile(..., protocol=Protocol.POP3, session_count=334)` and `build_training_matrix(seed) -> tuple[LabRuntimeProfile, ...]`.
-- Matrix output: exactly 15 profiles, five labels in each of `lab_train`, `lab_calibration`, and `lab_test`, each with unique scenario/profile/capture hashes and 334 sessions.
+- Matrix output: exactly 245 profiles, five labels in each of `lab_train`, `lab_calibration`, and `lab_test`, each with unique scenario/profile/capture hashes and 73 sessions.
 
-- [ ] Write failing tests asserting POP3 maps to port 110 and that the matrix contains 15 profiles / 5,010 requested sessions with no reused scenario ID, parameter hash, or environment-scenario pair.
+- [ ] Write failing tests asserting POP3 maps to port 110 and that the matrix contains 245 profiles / 17,885 requested sessions with no reused scenario ID, parameter hash, or environment-scenario pair.
 - [ ] Run: `uv run python -m pytest tests/test_lab_matrix.py -q`; expect FAIL.
-- [ ] Add POP3 profile support, a `session_count` field replacing the fixed connection count, and the fixed 15-profile catalog assignment: three unique scenario IDs per risk label across the three environments; rotate SMTP, IMAP, and POP3.
+- [ ] Add POP3 profile support, a `session_count` field replacing the fixed connection count, and the current 245-profile catalog assignment across the three environments; rotate SMTP, IMAP, and POP3.
 - [ ] Run the focused tests; expect PASS.
 
 ## Task 3: Postfix/Dovecot and legacy Compose services
@@ -103,13 +105,13 @@
 - Create: `configs/training.pcap.json`
 
 **Interfaces:**
-- Produces: `generate_training_matrix(seed, root) -> DatasetRun`, a persisted 5,010-row dataset, saved model bundle, and synthetic evaluation report.
+- Produces: `generate_training_matrix(seed, root) -> DatasetRun`, a persisted 17,885-row dataset, saved model bundle, and synthetic evaluation report.
 
-- [ ] Write failing test with a temporary runner fixture asserting that matrix generation refuses fewer than 15 successful captures or any count other than 5,010.
+- [ ] Write failing test with a temporary runner fixture asserting that matrix generation refuses fewer than 245 successful captures or any count other than 17,885.
 - [ ] Run the test; expect FAIL.
 - [ ] Implement batch execution with bounded retries (one retry per failed transient Compose run), explicit status manifests, and no retry for `unsupported_in_lab`.
 - [ ] Assemble only successful records, call `split_dataset`, `write_dataset_run`, `train_model_bundle`, `calibrate_scores`, `evaluate_bundle`, and `save_model_bundle` using `configs/training.pcap.json`.
-- [ ] Reject training unless all three partitions contain all five labels, capture/scenario/parameter/environment groups are disjoint, and the record count is exactly 5,010.
+- [ ] Reject training unless all three partitions contain all five labels, capture/scenario/parameter/environment groups are disjoint, and the record count is exactly 17,885.
 - [ ] Run the fixture test; expect PASS.
 
 ## Task 6: Full lab generation and verification
@@ -119,7 +121,7 @@
 
 - [ ] Run: `uv run python -m pytest -q`; expect PASS.
 - [ ] Run: `uv run python -m py_compile ml/*.py datasets/lab/*.py tests/test_*.py && uv lock --check`; expect PASS.
-- [ ] Run the matrix command with seed `420042`; verify 15 `success` manifests, 5,010 rows, checksums, no split leakage, saved bundle reload, and evaluation report.
+- [ ] Run the matrix command with seed `420042`; verify 245 `success` manifests, 17,885 rows, checksums, no split leakage, saved bundle reload, and evaluation report.
 - [ ] Inspect metrics; report the synthetic-only result and the fusion critical-recall value without tuning on the test partition.
 
 ## Plan self-review

@@ -1687,6 +1687,8 @@ def validate_dataset_run(path: str | Path) -> dict[str, Any]:
         .read_text()
         .splitlines()
     ]
+    if len(records) != manifest["record_count"]:
+        raise ValueError("dataset record count does not match run manifest")
     if records_hash(records) != manifest["dataset_sha256"]:
         raise ValueError("dataset hash does not match run manifest")
 
@@ -1714,9 +1716,16 @@ def validate_dataset_run(path: str | Path) -> dict[str, Any]:
     if len(split_ids) != len(set(split_ids)) or set(split_ids) != source_ids:
         raise ValueError("saved splits do not partition the dataset exactly once")
 
-    for attribute in ("environment_id", "scenario_id"):
+    for attribute in ("environment_id", "scenario_id", "capture_id", "parameter_hash"):
         split_groups = [
-            {getattr(record.provenance, attribute) for record in partitions[name]}
+            {
+                value
+                for value in (
+                    getattr(record.provenance, attribute)
+                    for record in partitions[name]
+                )
+                if value is not None
+            }
             for name in ("train", "validation", "test")
         ]
         if any(
@@ -1732,6 +1741,52 @@ def validate_dataset_run(path: str | Path) -> dict[str, Any]:
         if _file_hash(run_path / relative_path) != digest:
             raise ValueError(f"checksum mismatch: {relative_path}")
     return manifest
+
+
+def load_dataset_run(
+    path: str | Path,
+) -> tuple[DatasetArtifact, SplitArtifact]:
+    run_path = Path(path)
+    manifest = validate_dataset_run(run_path)
+    records = [
+        validate_session(json.loads(line))
+        for line in (run_path / "extracted" / "session_features.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    scenario_manifests = [
+        ScenarioManifest.model_validate(json.loads(line))
+        for line in (run_path / "scenario_manifest.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    dataset = DatasetArtifact(
+        dataset_version=manifest["dataset_version"],
+        mode=manifest["mode"],
+        master_seed=manifest["master_seed"],
+        environment_ids=tuple(manifest["environment_ids"]),
+        records=records,
+        scenario_manifests=scenario_manifests,
+        pcap_sha256=dict(manifest.get("pcap_sha256", {})),
+        sha256=manifest["dataset_sha256"],
+    )
+    partitions = {
+        name: [
+            validate_session(row)
+            for row in pq.read_table(
+                run_path / "splits" / f"{name}.parquet"
+            ).to_pylist()
+        ]
+        for name in ("train", "validation", "test")
+    }
+    split = SplitArtifact(
+        train=partitions["train"],
+        validation=partitions["validation"],
+        test=partitions["test"],
+        group_key=manifest["split_group_key"],
+        sha256=manifest["split_sha256"],
+    )
+    return dataset, split
 
 
 if __name__ == "__main__":

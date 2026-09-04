@@ -3,14 +3,14 @@ from __future__ import annotations
 from sklearn.isotonic import IsotonicRegression
 
 from ml.calibration import CalibrationState
-from ml.fusion import fuse_session
+from ml.fusion import FusionConfig, fuse_session
 from ml.models import (
     RISK_LABELS,
     ClassifierOutput,
     IsolationForestOutput,
     ModelOutputs,
 )
-from ml.schema import RiskLabel
+from ml.schema import ModelAction, RiskLabel
 from tests.test_rules import _record
 
 
@@ -23,7 +23,7 @@ def _identity_calibrators() -> tuple[IsotonicRegression, ...]:
     return tuple(calibrators)
 
 
-def test_mail_check_risk_ignores_unusable_isolation_forest() -> None:
+def test_isolation_forest_only_flag_requires_analyst_review() -> None:
     probabilities = {label: 0.0 for label in RISK_LABELS}
     probabilities[RiskLabel.INFORMATIONAL] = 1.0
     output = ModelOutputs(
@@ -49,6 +49,15 @@ def test_mail_check_risk_ignores_unusable_isolation_forest() -> None:
 
     result = fuse_session(_record(), output, calibration)
 
-    assert result.risk.risk_class is RiskLabel.INFORMATIONAL
-    assert result.action.value == "no_action"
+    assert result.risk.risk_class is RiskLabel.LOW
+    assert result.action is ModelAction.ANALYST_REVIEW
     assert result.anomaly.detected is True
+    assert result.model_outputs["isolation_forest"]["flagged"] is True
+
+
+def test_default_fusion_weights_include_isolation_forest() -> None:
+    config = FusionConfig()
+
+    assert config.xgboost_weight == 0.50
+    assert config.random_forest_weight == 0.30
+    assert config.isolation_forest_weight == 0.20

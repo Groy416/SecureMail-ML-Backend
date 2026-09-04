@@ -17,7 +17,7 @@ from ml.calibration import load_calibration_state
 from ml.evaluate import evaluate_bundle, save_evaluation_report
 from ml.models import load_model_bundle
 
-BUNDLE = "models/grouped-105-capture"
+BUNDLE = "models/grouped-105-capture-pcap"
 
 
 def _print_report(title: str, path: Path, report) -> None:

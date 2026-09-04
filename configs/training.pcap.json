@@ -1,0 +1,17 @@
+{
+  "random_seed": 420042,
+  "xgboost_n_estimators": 300,
+  "xgboost_max_depth": 5,
+  "xgboost_learning_rate": 0.05,
+  "xgboost_subsample": 0.8,
+  "xgboost_colsample_bytree": 0.8,
+  "random_forest_n_estimators": 300,
+  "random_forest_min_samples_leaf": 2,
+  "n_jobs": 1,
+  "isolation_contamination": "auto",
+  "fusion": {
+    "xgboost_weight": 0.5,
+    "random_forest_weight": 0.3,
+    "isolation_forest_weight": 0.2
+  }
+}

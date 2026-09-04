@@ -147,6 +147,55 @@ def _record_for_profile(profile, capture_id: str) -> SessionFeatureRecord:
     )
 
 
+def test_assemble_successful_runs_rejects_a_partial_capture(monkeypatch, tmp_path) -> None:
+    manifest = ScenarioManifest.model_validate(CATALOG[0]["manifest"])
+    profiles = [
+        resolve_runtime_profile(
+            manifest,
+            Protocol.SMTP,
+            environment,
+            7,
+            index,
+            connection_count=73,
+            scenario_suffix=environment,
+        )
+        for index, environment in enumerate(
+            ("lab_train", "lab_calibration", "lab_test")
+        )
+    ]
+    runs = [
+        LabRun(
+            tmp_path / profile.environment_id,
+            "success",
+            f"{index + 1:064x}",
+            profile=profile,
+        )
+        for index, profile in enumerate(profiles)
+    ]
+
+    def extracted(run: LabRun) -> list[SessionFeatureRecord]:
+        count = 72 if run.profile is profiles[0] else 73
+        return [
+            _record_for_profile(run.profile, f"{run.path.name}-{index}")
+            for index in range(count)
+        ]
+
+    monkeypatch.setattr("datasets.lab.runner.extract_run", extracted)
+
+    with pytest.raises(ValueError, match="73 extracted sessions"):
+        assemble_successful_runs(
+            runs,
+            {
+                "mode": "synthetic_pcap",
+                "master_seed": 7,
+                "session_count": 218,
+                "environment_ids": ("lab_train", "lab_calibration", "lab_test"),
+                "calibration_environment_id": "lab_calibration",
+                "evaluation_environment_id": "lab_test",
+            },
+        )
+
+
 def test_assemble_successful_runs_excludes_unsupported_runs(monkeypatch, tmp_path) -> None:
     manifests = [
         ScenarioManifest.model_validate(item["manifest"])

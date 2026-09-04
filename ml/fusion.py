@@ -21,9 +21,9 @@ from ml.schema import (
 
 
 class FusionConfig(ContractModel):
-    xgboost_weight: float = Field(default=0.625, ge=0, le=1)
-    random_forest_weight: float = Field(default=0.375, ge=0, le=1)
-    isolation_forest_weight: float = Field(default=0.0, ge=0, le=1)
+    xgboost_weight: float = Field(default=0.50, ge=0, le=1)
+    random_forest_weight: float = Field(default=0.30, ge=0, le=1)
+    isolation_forest_weight: float = Field(default=0.20, ge=0, le=1)
 
     def __init__(self, **data: object) -> None:
         super().__init__(**data)
@@ -114,7 +114,7 @@ def _action(
 ) -> ModelAction:
     if minimum_rule_severity is RiskLabel.CRITICAL:
         return ModelAction.CRITICAL_REVIEW
-    if anomaly_detected and isolation_forest_weight > 0:
+    if anomaly_detected:
         return ModelAction.ANALYST_REVIEW
     if risk in {RiskLabel.INFORMATIONAL}:
         return ModelAction.NO_ACTION

@@ -88,9 +88,9 @@ MATRIX_CAPTURES = TRAIN_CAPTURES + CAL_CAPTURES + EVAL_CAPTURES
 MATRIX_SESSIONS = TRAIN_SESSIONS + CAL_SESSIONS + EVAL_SESSIONS
 
 _PARTITIONS: tuple[tuple[str, int, int, int], ...] = (
-    ("lab_train", TRAIN_SEED, TRAIN_ROTATIONS, 0),
-    ("lab_calibration", CALIBRATION_SEED, CAL_ROTATIONS, 1),
-    ("lab_test", EVAL_SEED, EVAL_ROTATIONS, 2),
+    ("lab_train", 0, TRAIN_ROTATIONS, 0),
+    ("lab_calibration", 17, CAL_ROTATIONS, 1),
+    ("lab_test", 1, EVAL_ROTATIONS, 2),
 )
 
 
@@ -115,9 +115,9 @@ def _iter_partition_captures(
 def build_training_matrix(master_seed: int) -> tuple[LabRuntimeProfile, ...]:
     if len(MATRIX_SLOTS) != SLOTS_PER_ROTATION:
         raise ValueError("matrix slot count must equal slots per rotation")
-    del master_seed
     profiles: list[LabRuntimeProfile] = []
-    for environment_id, seed, rotations, protocol_offset in _PARTITIONS:
+    for environment_id, seed_offset, rotations, protocol_offset in _PARTITIONS:
+        seed = master_seed + seed_offset
         for capture_index, slot_index, scenario_id, protocol in _iter_partition_captures(
             environment_id, seed, rotations, protocol_offset
         ):
@@ -227,7 +227,8 @@ def generate_grouped_feature_dataset(
     )
     records = []
     manifests = []
-    for environment_id, seed, rotations, protocol_offset in _PARTITIONS:
+    for environment_id, seed_offset, rotations, protocol_offset in _PARTITIONS:
+        seed = parsed.master_seed + seed_offset
         records.extend(
             _partition_records(environment_id, seed, rotations, protocol_offset)
         )
