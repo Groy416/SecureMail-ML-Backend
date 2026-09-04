@@ -64,17 +64,57 @@ _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
         "connection_count": 3,
         "service": "legacy-lab",
     },
+    "expired_certificate_tls12": {
+        "tls_minimum_version": "TLS1.2",
+        "tls_maximum_version": "TLS1.2",
+        "service": "legacy-lab",
+    },
+    "invalid_certificate_chain_tls12": {
+        "tls_minimum_version": "TLS1.2",
+        "tls_maximum_version": "TLS1.2",
+    },
+    "hostname_mismatch_tls12": {
+        "tls_minimum_version": "TLS1.2",
+        "tls_maximum_version": "TLS1.2",
+    },
+    "weak_rsa_key_tls12": {
+        "tls_minimum_version": "TLS1.2",
+        "tls_maximum_version": "TLS1.2",
+        "service": "legacy-lab",
+    },
+    "expired_hostname_mismatch": {
+        "certificate_mode": "hostname_mismatch",
+        "service": "legacy-lab",
+    },
+    "weak_rsa_no_forward_secrecy": {
+        "tls_minimum_version": "TLS1.2",
+        "tls_maximum_version": "TLS1.2",
+        "cipher_string": "AES128-SHA:@SECLEVEL=0",
+        "service": "legacy-lab",
+    },
+    "expired_invalid_chain": {
+        "certificate_mode": "unknown_ca",
+        "service": "legacy-lab",
+    },
 }
 
 _CERTIFICATE_MODE: dict[str, str] = {
     "expired_certificate": "expired",
+    "expired_certificate_tls12": "expired",
+    "expired_certificate_ecdsa": "expired",
     "deprecated_tls": "unknown_ca",
     "weak_cipher": "unknown_ca",
     "invalid_certificate_chain": "unknown_ca",
+    "invalid_certificate_chain_tls12": "unknown_ca",
     "hostname_mismatch": "hostname_mismatch",
+    "hostname_mismatch_tls12": "hostname_mismatch",
     "weak_rsa_key": "weak_rsa",
+    "weak_rsa_key_tls12": "weak_rsa",
     "combined_critical_weaknesses": "unknown_ca",
     "invalid_chain_repeated_failures": "unknown_ca",
+    "expired_hostname_mismatch": "hostname_mismatch",
+    "weak_rsa_no_forward_secrecy": "weak_rsa",
+    "expired_invalid_chain": "unknown_ca",
 }
 
 
@@ -184,10 +224,16 @@ def resolve_runtime_profile(
         if base_id
         in {
             "weak_rsa_key",
+            "weak_rsa_key_tls12",
             "expired_certificate",
+            "expired_certificate_tls12",
+            "expired_certificate_ecdsa",
             "deprecated_tls",
             "weak_cipher",
             "rsa_no_forward_secrecy",
+            "weak_rsa_no_forward_secrecy",
+            "expired_hostname_mismatch",
+            "expired_invalid_chain",
         }
         else "mail-core",
     }

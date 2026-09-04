@@ -2,15 +2,15 @@
 
 ## Production scoring
 
-Frozen bundle: `models/grouped-69-capture`  
-CI regression eval: `evals/evaluation-0f4013265976/metrics.json` (synthetic 5,037-row holdout, not live traffic)
+Frozen bundle: `models/grouped-105-capture-pcap`
+CI regression eval: retrain with `scripts/train_evaluate_grouped_matrix.py` after catalog/matrix changes (synthetic lab_test holdout, not live traffic)
 
 Roundcap / live extractors must send **session feature JSON only**. This process does not accept PCAP uploads, mail bodies, or secrets.
 
 ```bash
 uv sync
 uv run python -m pytest -q
-uv run python -m ml.product --bundle models/grouped-69-capture --input sessions.jsonl --output results.jsonl
+uv run python -m ml.product --bundle models/grouped-105-capture-pcap --input sessions.jsonl --output results.jsonl
 uv run python scripts/evaluate_prod_holdouts.py
 ```
 
@@ -687,7 +687,7 @@ datasets/lab/runs/<profile-hash>/
 
 `run_manifest.json` records the run schema/status, detail, PCAP hash when successful, profile, platform, and locally inspected image IDs. A missing or empty successful PCAP is converted to `failed`; an OpenSSL/TLS profile refusal is recorded as `unsupported_in_lab` and produces no feature row. Existing run directories are reused by profile hash rather than overwritten.
 
-The current profile matrix can exercise normal TLS 1.2/1.3, STARTTLS-unused/abort behavior, certificate posture variants, RSA-without-forward-secrecy, ChaCha20/unusual negotiation, and repeated-session behavior. Legacy TLS, 3DES, expired-certificate issuance, and renegotiation are explicitly allowed to become `unsupported_in_lab`. An uncommitted `legacy-lab` Compose profile, OpenSSL provider configuration, and runner service selection now exist, but they are preliminary and not covered by the current integration suite; the full 15-capture/5,010-row matrix remains design work in [`docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md`](docs/superpowers/specs/2026-09-04-full-pcap-training-matrix-design.md).
+The current profile matrix can exercise normal TLS 1.2/1.3, STARTTLS-unused/abort behavior, certificate posture variants, RSA-without-forward-secrecy, ChaCha20/unusual negotiation, and repeated-session behavior. Legacy TLS, 3DES, expired-certificate issuance, and renegotiation are explicitly allowed to become `unsupported_in_lab`. The matrix contains 35 scenario slots across 245 profiles: 105 train captures, 35 calibration captures, and 105 test captures, with 73 sessions per capture and 17,885 requested sessions total. The packet-backed batch workflow is defined in [`docs/superpowers/plans/2026-09-04-mvp-synthetic-pcap-shadow.md`](docs/superpowers/plans/2026-09-04-mvp-synthetic-pcap-shadow.md).
 
 Remove generated lab runs only when you intend to regenerate them:
 

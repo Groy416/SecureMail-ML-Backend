@@ -15,19 +15,10 @@ from ml.dataset import (
 from ml.schema import Protocol, ScenarioManifest
 
 ENVIRONMENTS: tuple[str, ...] = ("lab_train", "lab_calibration", "lab_test")
-SLOTS_PER_ROTATION = 23
 TRAIN_ROTATIONS = 3
 EVAL_ROTATIONS = 3
 CAL_ROTATIONS = 1
 SESSIONS_PER_CAPTURE = 73
-TRAIN_CAPTURES = SLOTS_PER_ROTATION * TRAIN_ROTATIONS
-EVAL_CAPTURES = SLOTS_PER_ROTATION * EVAL_ROTATIONS
-CAL_CAPTURES = SLOTS_PER_ROTATION * CAL_ROTATIONS
-TRAIN_SESSIONS = TRAIN_CAPTURES * SESSIONS_PER_CAPTURE
-EVAL_SESSIONS = EVAL_CAPTURES * SESSIONS_PER_CAPTURE
-CAL_SESSIONS = CAL_CAPTURES * SESSIONS_PER_CAPTURE
-MATRIX_CAPTURES = TRAIN_CAPTURES + CAL_CAPTURES + EVAL_CAPTURES
-MATRIX_SESSIONS = TRAIN_SESSIONS + CAL_SESSIONS + EVAL_SESSIONS
 TRAIN_SEED = 420042
 CALIBRATION_SEED = 420059
 EVAL_SEED = 420043
@@ -38,10 +29,13 @@ MATRIX_SLOTS: tuple[str, ...] = (
     "normal_tls13_valid",
     "normal_tls12_valid",
     "starttls_used_successfully",
+    "starttls_used_tls12",
     "normal_tls13_aes128",
     "normal_tls12_aes256",
     "normal_tls13_ecdsa",
+    "normal_tls12_ecdsa",
     "normal_tls12_rsa4096",
+    "normal_tls13_rsa4096",
     "normal_tls12_aes_cbc",
     "certificate_expiry_advisory",
     "certificate_expiry_warning",
@@ -51,14 +45,47 @@ MATRIX_SLOTS: tuple[str, ...] = (
     "uncommon_chacha20_ecdsa",
     "unusual_chacha20_rsa4096",
     "expired_certificate",
+    "expired_certificate_tls12",
+    "expired_certificate_ecdsa",
     "invalid_certificate_chain",
+    "invalid_certificate_chain_tls12",
     "hostname_mismatch",
+    "hostname_mismatch_tls12",
     "starttls_advertised_unused",
     "rsa_no_forward_secrecy",
     "deprecated_tls",
     "weak_cipher",
     "invalid_chain_repeated_failures",
+    "weak_rsa_key",
+    "weak_rsa_key_tls12",
+    "starttls_handshake_failure",
+    "repeated_handshake_failures",
+    "combined_critical_weaknesses",
 )
+SLOTS_PER_ROTATION = len(MATRIX_SLOTS)
+
+
+def family_from_scenario(
+    scenario_id: str,
+    families: tuple[str, ...] | None = None,
+) -> str:
+    pool = families if families is not None else MATRIX_SLOTS
+    matches = [
+        family
+        for family in sorted(pool, key=len, reverse=True)
+        if scenario_id == family or scenario_id.startswith(f"{family}-")
+    ]
+    if not matches:
+        raise ValueError(f"scenario_id {scenario_id!r} does not match a known family")
+    return matches[0]
+TRAIN_CAPTURES = SLOTS_PER_ROTATION * TRAIN_ROTATIONS
+EVAL_CAPTURES = SLOTS_PER_ROTATION * EVAL_ROTATIONS
+CAL_CAPTURES = SLOTS_PER_ROTATION * CAL_ROTATIONS
+TRAIN_SESSIONS = TRAIN_CAPTURES * SESSIONS_PER_CAPTURE
+EVAL_SESSIONS = EVAL_CAPTURES * SESSIONS_PER_CAPTURE
+CAL_SESSIONS = CAL_CAPTURES * SESSIONS_PER_CAPTURE
+MATRIX_CAPTURES = TRAIN_CAPTURES + CAL_CAPTURES + EVAL_CAPTURES
+MATRIX_SESSIONS = TRAIN_SESSIONS + CAL_SESSIONS + EVAL_SESSIONS
 
 _PARTITIONS: tuple[tuple[str, int, int, int], ...] = (
     ("lab_train", TRAIN_SEED, TRAIN_ROTATIONS, 0),
@@ -121,7 +148,10 @@ def _capture_item(
     features = dict(source["features"])
     features["protocol"] = protocol.value
     features["dst_port"] = _PORTS[protocol]
-    if base_id.startswith("normal_") or base_id == "starttls_used_successfully":
+    if base_id.startswith("normal_") or base_id in {
+        "starttls_used_successfully",
+        "starttls_used_tls12",
+    }:
         features["cert_expires_in_days"] = float(features["cert_expires_in_days"]) + (
             19 * flavor
         )

@@ -239,16 +239,18 @@ def extract_sessions(
     *,
     scenario: ScenarioManifest | Mapping[str, object],
     environment_id: str,
-    generator_seed: int,
-    parameter_hash: str,
     destination_port: int,
+    generator_seed: int | None = None,
+    parameter_hash: str | None = None,
     trusted_ca_path: str | Path | None = None,
     expected_hostname: str | None = None,
+    source_type: SourceType = SourceType.SYNTHETIC_PCAP,
 ) -> list[SessionFeatureRecord]:
-    """Extract one controlled protocol scenario from a synthetic PCAP.
+    """Extract sessions from a PCAP for one protocol and destination port.
 
-    Labels come from ``scenario``; no packet-derived classifier labels are invented.
-    ``cert_*valid`` fields are populated only when a CA and expected hostname are supplied.
+    Synthetic lab rows keep catalog labels. Authorized captures get informational
+    labels and must not carry ``generator_seed``. Certificate validity fields are
+    populated only when a CA and expected hostname are supplied.
     """
     path = Path(pcap_path)
     if not path.is_file():
@@ -315,7 +317,7 @@ def extract_sessions(
                     capture_id=capture_id,
                     flow_id=f"{capture_id}:stream:{stream_id}",
                     session_id=f"{capture_id}:stream:{stream_id}",
-                    source_type=SourceType.SYNTHETIC_PCAP,
+                    source_type=source_type,
                     scenario_id=manifest.scenario_id,
                     environment_id=environment_id,
                     parameter_hash=parameter_hash,
@@ -368,9 +370,15 @@ def extract_sessions(
                     cert_signature_algorithm=certificate.get("cert_signature_algorithm"),
                 ),
                 labels=SessionLabels(
-                    risk_label=manifest.risk_label,
-                    anomaly_label=manifest.anomaly_label,
-                    expected_finding_ids=manifest.expected_finding_ids,
+                    risk_label=RiskLabel.INFORMATIONAL
+                    if source_type is SourceType.AUTHORIZED_CAPTURE
+                    else manifest.risk_label,
+                    anomaly_label=AnomalyLabel.NORMAL
+                    if source_type is SourceType.AUTHORIZED_CAPTURE
+                    else manifest.anomaly_label,
+                    expected_finding_ids=[]
+                    if source_type is SourceType.AUTHORIZED_CAPTURE
+                    else list(manifest.expected_finding_ids),
                 ),
             )
         )

@@ -10,6 +10,7 @@ from datasets.lab.matrix import (
     MATRIX_SESSIONS,
     MATRIX_SLOTS,
     SESSIONS_PER_CAPTURE,
+    TRAIN_ROTATIONS,
     TRAIN_SESSIONS,
     build_training_matrix,
     generate_grouped_feature_dataset,
@@ -32,7 +33,7 @@ def test_training_matrix_keeps_train_and_eval_as_separate_sets() -> None:
     assert counts["lab_calibration"] * SESSIONS_PER_CAPTURE == CAL_SESSIONS
 
 
-def test_grouped_dataset_trains_on_five_thousand_and_evals_on_another_set() -> None:
+def test_grouped_dataset_keeps_train_eval_and_calibration_disjoint() -> None:
     dataset = generate_grouped_feature_dataset(420042)
     split = split_dataset(
         dataset,
@@ -44,8 +45,9 @@ def test_grouped_dataset_trains_on_five_thousand_and_evals_on_another_set() -> N
     )
 
     assert len(dataset.records) == MATRIX_SESSIONS
-    assert len(split.train) == TRAIN_SESSIONS == 5037
-    assert len(split.test) == EVAL_SESSIONS == 5037
+    assert len(split.train) == TRAIN_SESSIONS
+    assert len(split.test) == EVAL_SESSIONS
+    assert TRAIN_SESSIONS == len(MATRIX_SLOTS) * TRAIN_ROTATIONS * SESSIONS_PER_CAPTURE
     assert len(split.validation) == CAL_SESSIONS
     assert not {
         record.provenance.capture_id for record in split.train
@@ -61,7 +63,7 @@ def test_grouped_dataset_trains_on_five_thousand_and_evals_on_another_set() -> N
             for record in partition
             if record.labels.risk_label is RiskLabel.INFORMATIONAL
         }
-        assert len(normals) >= 8
+        assert len(normals) >= 11
 
 
 def test_grouped_labels_match_rule_severity() -> None:

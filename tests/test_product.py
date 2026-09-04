@@ -79,7 +79,7 @@ def test_product_accepts_authorized_capture_without_training_labels() -> None:
 
 
 def test_product_scores_frozen_bundle_with_rules() -> None:
-    bundle_dir = Path("models/grouped-69-capture")
+    bundle_dir = Path("models/grouped-105-capture")
     if not (bundle_dir / "manifest.json").is_file():
         pytest.skip("frozen production bundle is not present")
     bundle, calibration = load_runtime(bundle_dir)

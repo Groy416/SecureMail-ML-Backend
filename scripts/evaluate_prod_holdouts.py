@@ -17,7 +17,7 @@ from ml.calibration import load_calibration_state
 from ml.evaluate import evaluate_bundle, save_evaluation_report
 from ml.models import load_model_bundle
 
-BUNDLE = "models/grouped-69-capture"
+BUNDLE = "models/grouped-105-capture"
 
 
 def _print_report(title: str, path: Path, report) -> None:
@@ -44,7 +44,7 @@ def main() -> None:
     family_split = eval_split(generate_heldout_family_records())
     family_report = evaluate_bundle(bundle, calibration, family_split)
     family_path = save_evaluation_report(family_report, "evals")
-    _print_report("held-out families (not in the 5k trainer)", family_path, family_report)
+    _print_report("held-out families (not in the training matrix)", family_path, family_report)
 
     if not docker_available():
         print("pcap holdout skipped: Docker is unavailable")

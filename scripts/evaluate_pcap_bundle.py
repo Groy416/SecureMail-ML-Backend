@@ -13,7 +13,7 @@ from ml.evaluate import evaluate_bundle, save_evaluation_report
 from ml.models import load_model_bundle
 
 SEED = 420042
-BUNDLE = "models/grouped-69-capture"
+BUNDLE = "models/grouped-105-capture"
 
 dataset = generate_grouped_feature_dataset(SEED)
 split = split_dataset(

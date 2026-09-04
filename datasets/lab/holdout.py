@@ -15,10 +15,10 @@ from ml.schema import Protocol, ScenarioManifest, SessionFeatureRecord
 HOLDOUT_SEED = 424242
 HOLDOUT_SESSIONS_PER_CAPTURE = 40
 HOLDOUT_FAMILIES: tuple[str, ...] = (
-    "weak_rsa_key",
-    "starttls_handshake_failure",
-    "repeated_handshake_failures",
-    "combined_critical_weaknesses",
+    "multiple_renegotiations",
+    "expired_hostname_mismatch",
+    "weak_rsa_no_forward_secrecy",
+    "expired_invalid_chain",
 )
 PCAP_HOLDOUT_ROOT = Path("datasets/lab/runs-pcap-holdout")
 PCAP_HOLDOUT_PROFILES: tuple[tuple[str, Protocol], ...] = (

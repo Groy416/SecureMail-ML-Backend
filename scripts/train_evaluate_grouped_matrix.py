@@ -14,7 +14,7 @@ from ml.evaluate import evaluate_bundle, save_evaluation_report
 from ml.models import predict_model_outputs, save_model_bundle, train_model_bundle
 
 SEED = 420042
-BUNDLE_DIR = Path("models/grouped-69-capture")
+BUNDLE_DIR = Path("models/grouped-105-capture")
 
 
 def main() -> None:
