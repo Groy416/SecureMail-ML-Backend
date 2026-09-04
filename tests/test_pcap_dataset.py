@@ -73,6 +73,7 @@ def _record(manifest: ScenarioManifest, environment_id: str) -> SessionFeatureRe
             source_type=SourceType.SYNTHETIC_PCAP,
             scenario_id=manifest.scenario_id,
             environment_id=environment_id,
+            parameter_hash="a" * 64,
             generator_seed=7,
             evidence_refs=[
                 EvidenceReference(
@@ -119,6 +120,28 @@ def _record(manifest: ScenarioManifest, environment_id: str) -> SessionFeatureRe
             anomaly_label=manifest.anomaly_label,
         ),
     )
+
+
+def test_synthetic_pcap_provenance_requires_a_parameter_hash() -> None:
+    with pytest.raises(ValueError, match="parameter_hash"):
+        Provenance(
+            capture_id="capture",
+            flow_id="flow",
+            session_id="session",
+            source_type=SourceType.SYNTHETIC_PCAP,
+            scenario_id="scenario",
+            environment_id="environment",
+            generator_seed=7,
+            evidence_refs=[
+                EvidenceReference(
+                    source=EvidenceSource.PCAP,
+                    stream_id=1,
+                    packet_start=1,
+                    packet_end=1,
+                    fields=["tcp.stream"],
+                )
+            ],
+        )
 
 
 def test_pcap_dataset_persists_capture_hashes_and_scenario_manifests(tmp_path) -> None:

@@ -1,28 +1,74 @@
 services:
-  mail-lab:
+  cert-init:
     build: .
-    command: ["/app/entrypoint.sh"]
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+    command: ["python", "/app/certs.py"]
     environment:
-      PCAP_PATH: ${PCAP_PATH:-/captures/capture.pcap}
       RUNTIME_PROFILE_PATH: /captures/runtime_profile.json
+      LAB_SERVER_NAME: mail-core
     volumes:
       - ${LAB_RUN_DIR:-./captures}:/captures
     networks: [mail_lab]
+
+  account-init:
+    image: docker.io/mailserver/docker-mailserver@sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f
+    entrypoint: ["/usr/local/bin/setup"]
+    command: ["email", "add", "lab@mail-core.lab.test", "synthetic-lab-only"]
+    volumes:
+      - ${LAB_RUN_DIR:-./captures}/mail-config:/tmp/docker-mailserver
+    networks: [mail_lab]
+
+  mail-core:
+    image: docker.io/mailserver/docker-mailserver@sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f
+    hostname: mail-core
+    domainname: lab.test
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+      account-init:
+        condition: service_completed_successfully
+    environment:
+      PERMIT_DOCKER: network
+      SSL_TYPE: manual
+      SSL_CERT_PATH: /tmp/dms/custom-certs/cert.pem
+      SSL_KEY_PATH: /tmp/dms/custom-certs/key.pem
+      ENABLE_POP3: "1"
+      ENABLE_FAIL2BAN: "0"
+      ENABLE_SPAMASSASSIN: "0"
+      ENABLE_CLAMAV: "0"
+      ENABLE_AMAVIS: "0"
+      SPOOF_PROTECTION: "0"
+      ONE_DIR: "1"
+    volumes:
+      - ${LAB_RUN_DIR:-./captures}/certs:/tmp/dms/custom-certs:ro
+      - ${LAB_RUN_DIR:-./captures}/mail-data:/var/mail
+      - ${LAB_RUN_DIR:-./captures}/mail-state:/var/mail-state
+      - ${LAB_RUN_DIR:-./captures}/mail-config:/tmp/docker-mailserver
+    networks: [mail_lab]
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 2525), 2).close()"]
+      test: ["CMD-SHELL", "ss -ltn | grep -Eq ':(25|143|110) '"]
       interval: 2s
       timeout: 2s
-      retries: 15
+      retries: 30
+
+  capture:
+    build: .
+    command: ["/app/capture.sh"]
+    network_mode: service:mail-core
+    depends_on:
+      mail-core:
+        condition: service_healthy
+    cap_add: [NET_ADMIN, NET_RAW]
+    environment:
+      PCAP_PATH: ${PCAP_PATH:-/captures/capture.pcap}
+    volumes:
+      - ${LAB_RUN_DIR:-./captures}:/captures
 
   client:
     build: .
     command: ["python", "/app/client.py"]
     depends_on:
-      mail-lab:
-        condition: service_healthy
+      capture:
+        condition: service_started
     environment:
       RUNTIME_PROFILE_PATH: /captures/runtime_profile.json
     volumes:

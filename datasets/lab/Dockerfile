@@ -6,5 +6,5 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY entrypoint.sh server.py client.py /app/
-RUN chmod +x /app/entrypoint.sh
+COPY entrypoint.sh capture.sh server.py certs.py client.py /app/
+RUN chmod +x /app/entrypoint.sh /app/capture.sh

@@ -3,6 +3,7 @@ from __future__ import annotations
 import ssl
 import subprocess
 import sys
+import warnings
 
 import pytest
 
@@ -31,7 +32,7 @@ def test_runtime_profile_is_seeded_and_hashable() -> None:
     second = resolve_runtime_profile(manifest, Protocol.SMTP, "lab_seed_0001", 7, 0)
 
     assert first.profile_sha256 == second.profile_sha256
-    assert first.destination_port == 2525
+    assert first.destination_port == 25
     assert first.client_mode == "starttls"
     assert first.tls_maximum_version == "TLS1.3"
     assert first.scenario.protocol is Protocol.SMTP
@@ -55,7 +56,9 @@ def test_client_tls_context_uses_the_runtime_profile() -> None:
     profile = resolve_runtime_profile(manifest, Protocol.SMTP, "lab_seed_0001", 7, 0)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
-    configure_tls_context(context, profile.model_dump(mode="json"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        configure_tls_context(context, profile.model_dump(mode="json"))
 
     assert context.minimum_version is ssl.TLSVersion.TLSv1
     assert context.maximum_version is ssl.TLSVersion.TLSv1
@@ -95,6 +98,7 @@ def _record_for_profile(profile, capture_id: str) -> SessionFeatureRecord:
             source_type=SourceType.SYNTHETIC_PCAP,
             scenario_id=profile.scenario.scenario_id,
             environment_id=profile.environment_id,
+            parameter_hash=profile.profile_sha256,
             generator_seed=profile.derived_seed,
             evidence_refs=[
                 EvidenceReference(

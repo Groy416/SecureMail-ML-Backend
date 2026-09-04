@@ -240,6 +240,7 @@ def extract_sessions(
     scenario: ScenarioManifest | Mapping[str, object],
     environment_id: str,
     generator_seed: int,
+    parameter_hash: str,
     destination_port: int,
     trusted_ca_path: str | Path | None = None,
     expected_hostname: str | None = None,
@@ -317,6 +318,7 @@ def extract_sessions(
                     source_type=SourceType.SYNTHETIC_PCAP,
                     scenario_id=manifest.scenario_id,
                     environment_id=environment_id,
+                    parameter_hash=parameter_hash,
                     generator_seed=generator_seed,
                     evidence_refs=[
                         EvidenceReference(
@@ -386,6 +388,7 @@ if __name__ == "__main__":
             scenario=normal_smtp,
             environment_id="lab_smoke",
             generator_seed=420042,
+            parameter_hash="lab-smoke",
             destination_port=2525,
             trusted_ca_path=pcap.parent / "ca.pem",
             expected_hostname="mail-lab",

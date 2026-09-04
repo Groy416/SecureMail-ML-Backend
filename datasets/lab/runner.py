@@ -119,31 +119,28 @@ def run_scenario(profile: LabRuntimeProfile, root: str | Path = "datasets/lab/ru
         "LAB_RUN_DIR": str(run_path.resolve()),
         "PCAP_PATH": f"/captures/{PCAP_FILENAME}",
     }
-    command = [
-        "docker",
-        "compose",
-        "-f",
-        str(COMPOSE_FILE),
-        "--project-name",
+    compose = [
+        "docker", "compose", "-f", str(COMPOSE_FILE), "--project-name",
         f"sml{profile.profile_sha256[:12]}",
-        "up",
-        "--build",
-        "--abort-on-container-exit",
-        "--exit-code-from",
-        "client",
     ]
-    completed = subprocess.run(command, text=True, capture_output=True, env=environment)
+    infrastructure = subprocess.run(
+        [*compose, "up", "--build", "--detach", "mail-core", "capture"],
+        text=True,
+        capture_output=True,
+        env=environment,
+    )
+    completed = (
+        subprocess.run(
+            [*compose, "run", "--rm", "--no-deps", "client"],
+            text=True,
+            capture_output=True,
+            env=environment,
+        )
+        if infrastructure.returncode == 0
+        else infrastructure
+    )
     subprocess.run(
-        [
-            "docker",
-            "compose",
-            "-f",
-            str(COMPOSE_FILE),
-            "--project-name",
-            f"sml{profile.profile_sha256[:12]}",
-            "down",
-            "--remove-orphans",
-        ],
+        [*compose, "down", "--remove-orphans"],
         text=True,
         capture_output=True,
         env=environment,
@@ -173,9 +170,10 @@ def extract_run(run: LabRun) -> list[SessionFeatureRecord]:
         scenario=profile.scenario,
         environment_id=profile.environment_id,
         generator_seed=profile.derived_seed,
+        parameter_hash=profile.profile_sha256,
         destination_port=profile.destination_port,
         trusted_ca_path=trusted_ca_path if trusted_ca_path.is_file() else None,
-        expected_hostname="mail-lab" if trusted_ca_path.is_file() else None,
+        expected_hostname="mail-core" if trusted_ca_path.is_file() else None,
     )
 
 

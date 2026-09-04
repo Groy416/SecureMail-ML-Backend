@@ -3,6 +3,7 @@ from __future__ import annotations
 import imaplib
 import json
 import os
+import poplib
 import smtplib
 import socket
 import ssl
@@ -10,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-HOST = "mail-lab"
+HOST = "mail-core"
 TLS_VERSION = {
     "TLS1.0": ssl.TLSVersion.TLSv1,
     "TLS1.1": ssl.TLSVersion.TLSv1_1,
@@ -104,11 +105,40 @@ def imap_starttls(profile: dict[str, Any]) -> None:
             pass
 
 
+def pop3_starttls(profile: dict[str, Any]) -> None:
+    port = int(profile["destination_port"])
+    if profile["client_mode"] == "abort_starttls":
+        with socket.create_connection((HOST, port), timeout=10) as client:
+            client.recv(4096)
+            client.sendall(b"STLS\r\n")
+            client.recv(4096)
+        return
+    client = poplib.POP3(HOST, port, timeout=10)
+    try:
+        if profile["client_mode"] == "starttls":
+            try:
+                client.stls(context=tls_context(profile))
+            except ssl.SSLCertVerificationError:
+                return
+            except ssl.SSLError as exc:
+                _record_unsupported(profile, exc)
+                return
+    finally:
+        try:
+            client.quit()
+        except (poplib.error_proto, OSError):
+            pass
+
+
 def main() -> None:
     profile = load_runtime_profile(
         os.environ.get("RUNTIME_PROFILE_PATH", "/captures/runtime_profile.json")
     )
-    handler = smtp_starttls if profile["protocol"] == "SMTP" else imap_starttls
+    handler = {
+        "SMTP": smtp_starttls,
+        "IMAP": imap_starttls,
+        "POP3": pop3_starttls,
+    }[profile["protocol"]]
     for _ in range(int(profile["connection_count"])):
         handler(profile)
         time.sleep(int(profile["command_delay_milliseconds"]) / 1000)

@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+import os
+import shutil
+from pathlib import Path
+
+from server import CERTIFICATE, PRIVATE_KEY, load_runtime_profile, provision_certificates
+
+profile = load_runtime_profile(os.environ.get("RUNTIME_PROFILE_PATH", "/captures/runtime_profile.json"))
+provision_certificates(profile)
+certs = Path("/captures/certs")
+certs.mkdir(exist_ok=True)
+shutil.copy2(CERTIFICATE, certs / "cert.pem")
+shutil.copy2(PRIVATE_KEY, certs / "key.pem")

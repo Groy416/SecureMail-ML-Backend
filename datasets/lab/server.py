@@ -87,7 +87,8 @@ def provision_certificates(profile: dict[str, Any]) -> None:
             "expired certificate issuance is not supported by this OpenSSL profile"
         )
     key_bits = "1024" if certificate_mode == "weak_rsa" else "2048"
-    server_name = "not-mail-lab" if certificate_mode == "hostname_mismatch" else "mail-lab"
+    hostname = os.environ.get("LAB_SERVER_NAME", "mail-core")
+    server_name = f"not-{hostname}" if certificate_mode == "hostname_mismatch" else hostname
     _run_openssl(
         "req",
         "-newkey",

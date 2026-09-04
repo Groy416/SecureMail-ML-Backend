@@ -156,6 +156,7 @@ class Provenance(ContractModel):
     source_type: SourceType
     scenario_id: NonEmptyString
     environment_id: NonEmptyString
+    parameter_hash: NonEmptyString | None = None
     generator_seed: NonNegativeInt | None = None
     evidence_refs: list[EvidenceReference] = Field(min_length=1)
 
@@ -180,6 +181,12 @@ class Provenance(ContractModel):
             raise ValueError(
                 "real records must not include generator_seed"
             )
+
+        if (
+            self.source_type is SourceType.SYNTHETIC_PCAP
+            and self.parameter_hash is None
+        ):
+            raise ValueError("synthetic_pcap records require parameter_hash")
 
         if (
             self.source_type is SourceType.SYNTHETIC_FEATURE

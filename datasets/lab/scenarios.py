@@ -131,7 +131,11 @@ def resolve_runtime_profile(
         "protocol": protocol,
         "environment_id": environment_id,
         "derived_seed": derived_seed,
-        "destination_port": 2525 if protocol is Protocol.SMTP else 1143,
+        "destination_port": {
+            Protocol.SMTP: 25,
+            Protocol.IMAP: 143,
+            Protocol.POP3: 110,
+        }[protocol],
         "client_mode": "starttls",
         "starttls_advertised": manifest.client_behavior.starttls_advertised,
         "starttls_accepted": True,
