@@ -10,10 +10,12 @@ existing XGBoost, Random Forest, and Isolation Forest bundle.
 
 Replace the temporary Python protocol harness with an internal `mail-core`
 Compose service running Postfix for SMTP and Dovecot for IMAP/POP3. Add a
-separate `legacy-lab` service and matching synthetic client. It loads an
-OpenSSL legacy-provider configuration and runs only profiles that need legacy
-TLS, 3DES, weak RSA, or expired certificates. The modern Postfix/Dovecot
-service remains the default for TLS 1.2/1.3 profiles.
+separate `legacy-lab` service and matching synthetic client. It runs only
+profiles that need weak RSA or expired certificates. The modern
+Postfix/Dovecot service remains the default for TLS 1.2/1.3 profiles. The
+matrix uses TLS 1.2 `AES128-SHA` with RSA key exchange for legacy-crypto
+coverage; 3DES remains an explicit `unsupported_in_lab` result and is not a
+required training capture.
 
 The legacy service receives the same immutable runtime-profile JSON. It emits
 `unsupported_in_lab` if OpenSSL cannot load the requested provider, cipher,

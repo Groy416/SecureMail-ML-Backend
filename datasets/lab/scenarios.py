@@ -41,8 +41,8 @@ _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
     },
     "multiple_renegotiations": {"requires_renegotiation": True},
     "combined_critical_weaknesses": {
-        "cipher_string": "DES-CBC3-SHA:@SECLEVEL=0",
-        "certificate_mode": "expired",
+        "certificate_mode": "unknown_ca",
+        "connection_count": 3,
     },
 }
 
@@ -51,7 +51,7 @@ _CERTIFICATE_MODE: dict[str, str] = {
     "invalid_certificate_chain": "unknown_ca",
     "hostname_mismatch": "hostname_mismatch",
     "weak_rsa_key": "weak_rsa",
-    "combined_critical_weaknesses": "expired",
+    "combined_critical_weaknesses": "unknown_ca",
 }
 
 
@@ -148,7 +148,7 @@ def resolve_runtime_profile(
         "connection_count": 1,
         "requires_renegotiation": False,
         "command_delay_milliseconds": derived_seed % 21,
-        "service": "legacy-lab" if base_id in {"deprecated_tls", "weak_cipher", "weak_rsa_key", "expired_certificate", "combined_critical_weaknesses"} else "mail-core",
+        "service": "legacy-lab" if base_id in {"weak_rsa_key", "expired_certificate"} else "mail-core",
     }
     runtime.update(_PROFILE_OVERRIDES.get(base_id, {}))
     if runtime["client_mode"] == "unused_starttls":

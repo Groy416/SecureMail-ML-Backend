@@ -135,7 +135,7 @@ def legacy_starttls(profile: dict[str, Any]) -> None:
     protocol = profile["protocol"].lower()
     command = [
         "openssl", "s_client", "-connect", f"{HOST}:{profile['destination_port']}",
-        "-starttls", protocol, "-tls1_2", "-cipher", profile["cipher_string"],
+        "-starttls", protocol, "-tls1_2", "-cipher", profile["cipher_string"].split(":@")[0],
         "-brief",
     ]
     completed = subprocess.run(command, input="Q\n", text=True, capture_output=True, timeout=15)
