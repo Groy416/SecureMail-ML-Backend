@@ -34,6 +34,63 @@ def test_hostname_mismatch_is_packet_backed_and_not_a_completed_handshake(tmp_pa
     assert records[0].features.cert_valid is False
 
 
+@pytest.mark.parametrize(
+    ("scenario_id", "protocol"),
+    [
+        ("weak_cipher", Protocol.IMAP),
+        ("combined_critical_weaknesses", Protocol.SMTP),
+        ("deprecated_tls", Protocol.POP3),
+        ("rsa_no_forward_secrecy", Protocol.IMAP),
+    ],
+)
+def test_legacy_cipher_profiles_run_to_packet_backed_session(
+    tmp_path,
+    scenario_id: str,
+    protocol: Protocol,
+) -> None:
+    if not _docker_available():
+        pytest.skip("Docker daemon is unavailable")
+    manifest = ScenarioManifest.model_validate(
+        next(item["manifest"] for item in CATALOG if item["manifest"]["scenario_id"] == scenario_id)
+    )
+    profile = resolve_runtime_profile(manifest, protocol, "lab_seed_0001", 7, 0)
+
+    run = run_scenario(profile, tmp_path)
+
+    assert run.status == "success", run.detail
+    assert len(extract_run(run)) == profile.connection_count
+
+
+def test_legacy_expired_certificate_profile_runs_to_packet_backed_session(tmp_path) -> None:
+    if not _docker_available():
+        pytest.skip("Docker daemon is unavailable")
+    manifest = ScenarioManifest.model_validate(
+        next(item["manifest"] for item in CATALOG if item["manifest"]["scenario_id"] == "expired_certificate_tls12")
+    )
+    profile = resolve_runtime_profile(manifest, Protocol.IMAP, "lab_seed_0001", 7, 0)
+
+    run = run_scenario(profile, tmp_path)
+
+    assert run.status == "success", run.detail
+    records = extract_run(run)
+    assert len(records) == 1
+    assert records[0].features.cert_expired is True
+
+
+def test_legacy_weak_rsa_profile_runs_to_packet_backed_session(tmp_path) -> None:
+    if not _docker_available():
+        pytest.skip("Docker daemon is unavailable")
+    manifest = ScenarioManifest.model_validate(
+        next(item["manifest"] for item in CATALOG if item["manifest"]["scenario_id"] == "weak_rsa_key")
+    )
+    profile = resolve_runtime_profile(manifest, Protocol.SMTP, "lab_seed_0001", 7, 0)
+
+    run = run_scenario(profile, tmp_path)
+
+    assert run.status == "success", run.detail
+    assert len(extract_run(run)) == 1
+
+
 @pytest.mark.parametrize("protocol", [Protocol.SMTP, Protocol.IMAP, Protocol.POP3])
 def test_valid_profile_runs_to_packet_backed_session(tmp_path, protocol: Protocol) -> None:
     if not _docker_available():

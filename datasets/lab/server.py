@@ -5,6 +5,7 @@ import json
 import os
 import ssl
 import subprocess
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -62,6 +63,56 @@ def _write_status(status: str, detail: str | None = None) -> None:
     )
 
 
+def _openssl_timestamp(value: datetime) -> str:
+    return value.strftime("%y%m%d%H%M%SZ")
+
+
+def _sign_expired_certificate(
+    *,
+    cert_dir: Path,
+    signing_ca: Path,
+    signing_key: Path,
+    csr: Path,
+) -> None:
+    config = cert_dir / "expired-ca.cnf"
+    config.write_text(
+        "[ca]\n"
+        "default_ca = local\n"
+        "[local]\n"
+        f"database = {cert_dir / 'index.txt'}\n"
+        f"new_certs_dir = {cert_dir}\n"
+        f"certificate = {signing_ca}\n"
+        f"private_key = {signing_key}\n"
+        f"serial = {cert_dir / 'serial'}\n"
+        "default_md = sha256\n"
+        "default_days = 365\n"
+        "policy = local_policy\n"
+        "copy_extensions = copy\n"
+        "unique_subject = no\n"
+        "[local_policy]\n"
+        "commonName = supplied\n"
+    )
+    (cert_dir / "index.txt").write_text("")
+    (cert_dir / "serial").write_text("01\n")
+    now = datetime.now(UTC)
+    _run_openssl(
+        "ca",
+        "-batch",
+        "-config",
+        str(config),
+        "-in",
+        str(csr),
+        "-out",
+        str(CERTIFICATE),
+        "-extfile",
+        str(cert_dir / "server.ext"),
+        "-startdate",
+        _openssl_timestamp(now - timedelta(days=2)),
+        "-enddate",
+        _openssl_timestamp(now - timedelta(minutes=1)),
+    )
+
+
 def provision_certificates(profile: dict[str, Any]) -> None:
     cert_dir = Path("/tmp/certs")
     cert_dir.mkdir(parents=True, exist_ok=True)
@@ -82,10 +133,6 @@ def provision_certificates(profile: dict[str, Any]) -> None:
         str(profile.get("certificate_validity_days", 365)),
     )
     certificate_mode = profile["certificate_mode"]
-    if certificate_mode == "expired":
-        raise UnsupportedLabScenario(
-            "expired certificate issuance is not supported by this OpenSSL profile"
-        )
     key_bits = "1024" if certificate_mode == "weak_rsa" else "2048"
     hostname = os.environ.get("LAB_SERVER_NAME", "mail-core")
     server_name = f"not-{hostname}" if certificate_mode == "hostname_mismatch" else hostname
@@ -122,24 +169,32 @@ def provision_certificates(profile: dict[str, Any]) -> None:
             "-days",
             str(profile.get("certificate_validity_days", 365)),
         )
-    _run_openssl(
-        "x509",
-        "-req",
-        "-in",
-        str(cert_dir / "server.csr"),
-        "-CA",
-        str(signing_ca),
-        "-CAkey",
-        str(signing_key),
-        "-CAcreateserial",
-        "-out",
-        str(CERTIFICATE),
-        "-days",
-        str(profile.get("certificate_validity_days", 365)),
-        "-sha256",
-        "-extfile",
-        str(cert_dir / "server.ext"),
-    )
+    if certificate_mode == "expired":
+        _sign_expired_certificate(
+            cert_dir=cert_dir,
+            signing_ca=signing_ca,
+            signing_key=signing_key,
+            csr=cert_dir / "server.csr",
+        )
+    else:
+        _run_openssl(
+            "x509",
+            "-req",
+            "-in",
+            str(cert_dir / "server.csr"),
+            "-CA",
+            str(signing_ca),
+            "-CAkey",
+            str(signing_key),
+            "-CAcreateserial",
+            "-out",
+            str(CERTIFICATE),
+            "-days",
+            str(profile.get("certificate_validity_days", 365)),
+            "-sha256",
+            "-extfile",
+            str(cert_dir / "server.ext"),
+        )
 
 
 def tls_context(profile: dict[str, Any]) -> ssl.SSLContext:

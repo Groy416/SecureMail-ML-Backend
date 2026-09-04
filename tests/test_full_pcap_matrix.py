@@ -6,6 +6,7 @@ import pytest
 
 from datasets.lab.matrix import generate_grouped_feature_dataset
 from datasets.lab.runner import (
+    _stop_legacy_capture,
     finalize_run,
     run_training_matrix,
     validate_training_matrix,
@@ -13,6 +14,34 @@ from datasets.lab.runner import (
 from datasets.lab.scenarios import resolve_runtime_profile
 from ml.dataset import CATALOG
 from ml.schema import Protocol, ScenarioManifest
+
+
+def test_stopping_legacy_capture_kills_container_tcpdump(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    class Process:
+        terminated = False
+        killed = False
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def wait(self, timeout: int) -> None:
+            return None
+
+    process = Process()
+    monkeypatch.setattr(
+        "datasets.lab.runner.subprocess.run",
+        lambda command, **kwargs: commands.append(command),
+    )
+
+    _stop_legacy_capture("legacy-container", process)
+
+    assert ["docker", "exec", "legacy-container", "pkill", "-TERM", "-x", "tcpdump"] in commands
+    assert process.terminated is True
 
 
 def test_training_matrix_rejects_an_incomplete_profile_list(monkeypatch, tmp_path) -> None:

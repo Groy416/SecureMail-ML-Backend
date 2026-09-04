@@ -32,8 +32,17 @@ def configure_tls_context(context: ssl.SSLContext, profile: dict[str, Any]) -> N
         context.set_ciphers(profile["cipher_string"])
 
 
-def tls_context(profile: dict[str, Any]) -> ssl.SSLContext:
-    context = ssl.create_default_context(cafile="/captures/ca.pem")
+def tls_context(
+    profile: dict[str, Any],
+    *,
+    verify: bool = True,
+) -> ssl.SSLContext:
+    if verify:
+        context = ssl.create_default_context(cafile="/captures/ca.pem")
+    else:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
     configure_tls_context(context, profile)
     context.keylog_filename = "/captures/tls.keys"
     return context
@@ -59,7 +68,7 @@ def _smtp_abort_starttls(port: int) -> None:
         client.recv(4096)
 
 
-def smtp_starttls(profile: dict[str, Any]) -> None:
+def smtp_starttls(profile: dict[str, Any], *, verify: bool = True) -> None:
     port = int(profile["destination_port"])
     if profile["client_mode"] == "abort_starttls":
         _smtp_abort_starttls(port)
@@ -68,7 +77,7 @@ def smtp_starttls(profile: dict[str, Any]) -> None:
         client.ehlo()
         if profile["client_mode"] == "starttls":
             try:
-                client.starttls(context=tls_context(profile))
+                client.starttls(context=tls_context(profile, verify=verify))
                 client.ehlo()
             except ssl.SSLCertVerificationError:
                 return
@@ -84,7 +93,7 @@ def _imap_abort_starttls(port: int) -> None:
         client.recv(4096)
 
 
-def imap_starttls(profile: dict[str, Any]) -> None:
+def imap_starttls(profile: dict[str, Any], *, verify: bool = True) -> None:
     port = int(profile["destination_port"])
     if profile["client_mode"] == "abort_starttls":
         _imap_abort_starttls(port)
@@ -93,7 +102,7 @@ def imap_starttls(profile: dict[str, Any]) -> None:
     try:
         if profile["client_mode"] == "starttls":
             try:
-                client.starttls(ssl_context=tls_context(profile))
+                client.starttls(ssl_context=tls_context(profile, verify=verify))
             except ssl.SSLCertVerificationError:
                 return
             except ssl.SSLError as exc:
@@ -106,7 +115,7 @@ def imap_starttls(profile: dict[str, Any]) -> None:
             pass
 
 
-def pop3_starttls(profile: dict[str, Any]) -> None:
+def pop3_starttls(profile: dict[str, Any], *, verify: bool = True) -> None:
     port = int(profile["destination_port"])
     if profile["client_mode"] == "abort_starttls":
         with socket.create_connection((HOST, port), timeout=10) as client:
@@ -118,7 +127,7 @@ def pop3_starttls(profile: dict[str, Any]) -> None:
     try:
         if profile["client_mode"] == "starttls":
             try:
-                client.stls(context=tls_context(profile))
+                client.stls(context=tls_context(profile, verify=verify))
             except ssl.SSLCertVerificationError:
                 return
             except ssl.SSLError as exc:
@@ -132,16 +141,47 @@ def pop3_starttls(profile: dict[str, Any]) -> None:
 
 
 def legacy_starttls(profile: dict[str, Any]) -> None:
+    if profile["tls_minimum_version"] == "TLS1.3":
+        handler = {
+            "SMTP": smtp_starttls,
+            "IMAP": imap_starttls,
+            "POP3": pop3_starttls,
+        }[profile["protocol"]]
+        handler(profile, verify=False)
+        return
+
     protocol = profile["protocol"].lower()
     command = [
-        "openssl", "s_client", "-connect", f"{HOST}:{profile['destination_port']}",
-        "-starttls", protocol, "-tls1_2", "-cipher", profile["cipher_string"].split(":@")[0],
-        "-brief",
+        "openssl",
+        "s_client",
+        "-connect",
+        f"{HOST}:{profile['destination_port']}",
+        "-starttls",
+        protocol,
+        {"TLS1.0": "-tls1", "TLS1.1": "-tls1_1", "TLS1.2": "-tls1_2"}[
+            profile["tls_minimum_version"]
+        ],
     ]
-    completed = subprocess.run(command, input="Q\n", text=True, capture_output=True, timeout=15)
+    if profile.get("cipher_string"):
+        command.extend(["-cipher", profile["cipher_string"].split(":@")[0]])
+    command.append("-brief")
+    completed = subprocess.run(
+        command,
+        input="Q\n",
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
     if completed.returncode:
         Path("/captures/runtime_status.json").write_text(
-            json.dumps({"status": "unsupported_in_lab", "detail": completed.stderr[-1000:]}, sort_keys=True) + "\n"
+            json.dumps(
+                {
+                    "status": "unsupported_in_lab",
+                    "detail": completed.stderr[-1000:],
+                },
+                sort_keys=True,
+            )
+            + "\n"
         )
 
 

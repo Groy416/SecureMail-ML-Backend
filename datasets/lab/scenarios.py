@@ -19,7 +19,7 @@ _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
     "weak_cipher": {
         "tls_minimum_version": "TLS1.2",
         "tls_maximum_version": "TLS1.2",
-        "cipher_string": "DES-CBC3-SHA:@SECLEVEL=0",
+        "cipher_string": "AES128-SHA:@SECLEVEL=0",
         "service": "legacy-lab",
     },
     "rsa_no_forward_secrecy": {
@@ -62,6 +62,7 @@ _PROFILE_OVERRIDES: dict[str, dict[str, object]] = {
     "combined_critical_weaknesses": {
         "certificate_mode": "unknown_ca",
         "connection_count": 3,
+        "cipher_string": "AES128-SHA:@SECLEVEL=0",
         "service": "legacy-lab",
     },
     "expired_certificate_tls12": {

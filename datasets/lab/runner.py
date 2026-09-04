@@ -91,6 +91,45 @@ def _scenario_hash(profile: LabRuntimeProfile | None) -> str | None:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _compose_down(
+    compose: list[str],
+    environment: dict[str, str],
+) -> None:
+    subprocess.run(
+        [
+            *compose,
+            "--profile",
+            "legacy",
+            "down",
+            "--timeout",
+            "15",
+            "--remove-orphans",
+        ],
+        text=True,
+        capture_output=True,
+        env=environment,
+    )
+
+
+def _stop_legacy_capture(
+    container_id: str,
+    process: subprocess.Popen | None,
+) -> None:
+    subprocess.run(
+        ["docker", "exec", container_id, "pkill", "-TERM", "-x", "tcpdump"],
+        text=True,
+        capture_output=True,
+    )
+    if process is None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=10)
+
+
 def _load_profile(path: Path) -> LabRuntimeProfile | None:
     profile_path = path / "runtime_profile.json"
     return (
@@ -223,10 +262,14 @@ def run_scenario(profile: LabRuntimeProfile, root: str | Path = "datasets/lab/ru
     existing = _existing_run(run_path)
     if existing:
         return existing
-    run_path.mkdir(parents=True)
+    run_path.mkdir(parents=True, exist_ok=True)
     (run_path / "runtime_profile.json").write_text(
         profile.model_dump_json(indent=2) + "\n"
     )
+    mail_config = run_path / "mail-config"
+    mail_config.mkdir(exist_ok=True)
+    (mail_config / "postfix-accounts.cf").touch()
+    (mail_config / "dovecot-quotas.cf").touch()
     if profile.requires_renegotiation:
         return finalize_run(
             run_path,
@@ -246,42 +289,68 @@ def run_scenario(profile: LabRuntimeProfile, root: str | Path = "datasets/lab/ru
         f"sml{profile.profile_sha256[:12]}",
     ]
     services = ["mail-core", "capture"] if profile.service == "mail-core" else ["legacy-lab"]
-    infrastructure = subprocess.run(
-        [*compose, "--profile", "legacy", "up", "--build", "--detach", "--wait", *services],
-        text=True,
-        capture_output=True,
-        env=environment,
-    )
+    _compose_down(compose, environment)
     legacy_capture = None
-    if infrastructure.returncode == 0 and profile.service == "legacy-lab":
-        container_id = subprocess.run(
-            [*compose, "ps", "-q", "legacy-lab"], text=True, capture_output=True, env=environment
-        ).stdout.strip()
-        if container_id:
-            legacy_capture = subprocess.Popen(
-                ["docker", "exec", container_id, "tcpdump", "-U", "-i", "eth0", "-w", f"/captures/{PCAP_FILENAME}", "tcp port 25 or tcp port 143 or tcp port 110"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-    client_service = "legacy-client" if profile.service == "legacy-lab" else "client"
-    completed = (
-        subprocess.run(
-            [*compose, "run", "--rm", "--no-deps", client_service],
+    legacy_container_id = None
+    completed = None
+    try:
+        infrastructure = subprocess.run(
+            [
+                *compose,
+                "--profile",
+                "legacy",
+                "up",
+                "--build",
+                "--detach",
+                "--wait",
+                *services,
+            ],
             text=True,
             capture_output=True,
             env=environment,
         )
-        if infrastructure.returncode == 0
-        else infrastructure
-    )
-    if legacy_capture is not None:
-        legacy_capture.terminate()
-        legacy_capture.wait(timeout=10)
-    subprocess.run(
-        [*compose, "down", "--remove-orphans"],
-        text=True,
-        capture_output=True,
-        env=environment,
-    )
+        if infrastructure.returncode == 0 and profile.service == "legacy-lab":
+            legacy_container_id = subprocess.run(
+                [*compose, "ps", "-q", "legacy-lab"],
+                text=True,
+                capture_output=True,
+                env=environment,
+            ).stdout.strip()
+            if legacy_container_id:
+                legacy_capture = subprocess.Popen(
+                    [
+                        "docker",
+                        "exec",
+                        legacy_container_id,
+                        "tcpdump",
+                        "-U",
+                        "-i",
+                        "eth0",
+                        "-w",
+                        f"/captures/{PCAP_FILENAME}",
+                        "tcp port 25 or tcp port 143 or tcp port 110",
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+        client_service = "legacy-client" if profile.service == "legacy-lab" else "client"
+        completed = (
+            subprocess.run(
+                [*compose, "run", "--build", "--rm", "--no-deps", client_service],
+                text=True,
+                capture_output=True,
+                env=environment,
+            )
+            if infrastructure.returncode == 0
+            else infrastructure
+        )
+    finally:
+        if legacy_container_id:
+            _stop_legacy_capture(legacy_container_id, legacy_capture)
+        _compose_down(compose, environment)
+
+    if completed is None:
+        return finalize_run(run_path, "failed", "lab run did not complete")
     status_path = run_path / "runtime_status.json"
     if status_path.is_file():
         status = json.loads(status_path.read_text())

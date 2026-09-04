@@ -1,6 +1,9 @@
 openssl_conf = openssl_init
 [openssl_init]
 providers = provider_sect
+ssl_conf = ssl_sect
+[ssl_sect]
+system_default = system_default_sect
 [provider_sect]
 default = default_sect
 legacy = legacy_sect
@@ -10,3 +13,4 @@ activate = 1
 activate = 1
 [system_default_sect]
 CipherString = DEFAULT:@SECLEVEL=0
+MinProtocol = TLSv1
