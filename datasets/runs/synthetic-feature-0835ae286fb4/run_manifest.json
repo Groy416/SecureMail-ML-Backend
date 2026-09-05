@@ -1,0 +1,25 @@
+{
+  "created_at": "2026-09-04T16:04:00.671485+00:00",
+  "dataset_sha256": "0835ae286fb4b43a708f743aa503b4e71c705b3eb3730ebd220a0b9b80b518bc",
+  "dataset_version": "session-dataset.v1",
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0"
+  },
+  "environment_ids": [
+    "lab_train",
+    "lab_calibration",
+    "lab_test"
+  ],
+  "master_seed": 420042,
+  "mode": "synthetic_feature",
+  "pcap_sha256": {},
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "record_count": 11753,
+  "run_id": "synthetic-feature-0835ae286fb4",
+  "split_group_key": "environment_id",
+  "split_sha256": "50ca18d17de00ae1204baa2b7e5c1ee4b88abd42b08807dd38724f3601ab33e8"
+}
