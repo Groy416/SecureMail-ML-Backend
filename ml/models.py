@@ -41,11 +41,13 @@ RISK_LABELS: tuple[RiskLabel, ...] = (
     RiskLabel.CRITICAL,
 )
 RISK_LABEL_TO_INDEX = {label: index for index, label in enumerate(RISK_LABELS)}
-MODEL_BUNDLE_VERSION = "ml-bundle.v1"
+MODEL_BUNDLE_VERSION = "ml-bundle.v2"
+SUPPORTED_MODEL_BUNDLE_VERSIONS = {"ml-bundle.v1", MODEL_BUNDLE_VERSION}
 
 
 class ModelConfig(ContractModel):
     random_seed: int = Field(ge=0)
+    enable_isolation_forest: bool = False
     xgboost_n_estimators: int = Field(default=300, gt=0)
     xgboost_max_depth: int = Field(default=5, gt=0)
     xgboost_learning_rate: float = Field(default=0.05, gt=0)
@@ -93,7 +95,7 @@ class IsolationForestOutput(ContractModel):
 class ModelOutputs(ContractModel):
     xgboost: ClassifierOutput
     random_forest: ClassifierOutput
-    isolation_forest: IsolationForestOutput
+    isolation_forest: IsolationForestOutput | None = None
     diagnostics: dict[str, list[str]]
 
 
@@ -102,14 +104,14 @@ class ModelBundle:
     bundle_id: str
     config: ModelConfig
     preprocessor: PreprocessorState
-    isolation_preprocessor: PreprocessorState
     xgboost: XGBClassifier
     xgboost_class_indices: tuple[int, ...]
     random_forest: RandomForestClassifier
-    isolation_forest: IsolationForest
     training_split_sha256: str
-    normal_baseline_count: int
-    normal_baseline_features: dict[str, object]
+    normal_baseline_count: int = 0
+    normal_baseline_features: dict[str, object] | None = None
+    isolation_preprocessor: PreprocessorState | None = None
+    isolation_forest: IsolationForest | None = None
     version: str = MODEL_BUNDLE_VERSION
 
 
@@ -208,17 +210,6 @@ def train_model_bundle(
         split.train,
         source_features=parsed.source_features,
     )
-    normal_mask = np.asarray(
-        [
-            record.labels.risk_label is RiskLabel.INFORMATIONAL
-            and record.labels.anomaly_label.value == 0
-            for record in split.train
-        ],
-        dtype=bool,
-    )
-    if not normal_mask.any():
-        raise ValueError("Isolation Forest requires normal baseline training rows")
-
     xgboost_class_indices = tuple(sorted(set(labels.tolist())))
     xgboost_label_indices = {
         class_index: position
@@ -249,15 +240,29 @@ def train_model_bundle(
         random_state=parsed.random_seed,
         n_jobs=parsed.n_jobs,
     ).fit(training.matrix, labels)
-    isolation_training = build_feature_matrix(
-        split.train,
-        source_features=parsed.isolation_source_features or ISOLATION_FOREST_FEATURES,
-    )
-    isolation_forest = IsolationForest(
-        contamination=parsed.isolation_contamination,
-        random_state=parsed.random_seed,
-        n_jobs=parsed.n_jobs,
-    ).fit(isolation_training.matrix[normal_mask])
+    isolation_training = None
+    isolation_forest = None
+    normal_mask = np.zeros(len(split.train), dtype=bool)
+    if parsed.enable_isolation_forest:
+        normal_mask = np.asarray(
+            [
+                record.labels.risk_label is RiskLabel.INFORMATIONAL
+                and record.labels.anomaly_label.value == 0
+                for record in split.train
+            ],
+            dtype=bool,
+        )
+        if not normal_mask.any():
+            raise ValueError("Isolation Forest requires normal baseline training rows")
+        isolation_training = build_feature_matrix(
+            split.train,
+            source_features=parsed.isolation_source_features or ISOLATION_FOREST_FEATURES,
+        )
+        isolation_forest = IsolationForest(
+            contamination=parsed.isolation_contamination,
+            random_state=parsed.random_seed,
+            n_jobs=parsed.n_jobs,
+        ).fit(isolation_training.matrix[normal_mask])
 
     training_hash = records_hash(list(split.train))
     bundle_id = hashlib.sha256(
@@ -274,17 +279,27 @@ def train_model_bundle(
         bundle_id=f"{MODEL_BUNDLE_VERSION}.{bundle_id}",
         config=parsed,
         preprocessor=training.fit_state,
-        isolation_preprocessor=isolation_training.fit_state,
         xgboost=xgboost,
         xgboost_class_indices=xgboost_class_indices,
         random_forest=random_forest,
-        isolation_forest=isolation_forest,
         training_split_sha256=training_hash,
         normal_baseline_count=int(normal_mask.sum()),
-        normal_baseline_features=_normal_baseline_features(
-            [record for record, is_normal in zip(split.train, normal_mask, strict=True) if is_normal],
-            training.fit_state.source_features,
+        normal_baseline_features=(
+            _normal_baseline_features(
+                [
+                    record
+                    for record, is_normal in zip(split.train, normal_mask, strict=True)
+                    if is_normal
+                ],
+                training.fit_state.source_features,
+            )
+            if isolation_training is not None
+            else None
         ),
+        isolation_preprocessor=(
+            isolation_training.fit_state if isolation_training is not None else None
+        ),
+        isolation_forest=isolation_forest,
     )
 
 
@@ -293,7 +308,6 @@ def predict_model_outputs(
     records: Sequence[SessionFeatureRecord],
 ) -> list[ModelOutputs]:
     matrix = build_feature_matrix(records, bundle.preprocessor)
-    isolation_matrix = build_feature_matrix(records, bundle.isolation_preprocessor)
     xgboost_probabilities = _five_class_probabilities(
         bundle.xgboost,
         matrix.matrix,
@@ -304,13 +318,18 @@ def predict_model_outputs(
         matrix.matrix,
         tuple(int(index) for index in bundle.random_forest.classes_),
     )
-    anomaly_scores = bundle.isolation_forest.decision_function(isolation_matrix.matrix)
+    anomaly_scores = None
+    if bundle.isolation_forest is not None and bundle.isolation_preprocessor is not None:
+        isolation_matrix = build_feature_matrix(records, bundle.isolation_preprocessor)
+        anomaly_scores = bundle.isolation_forest.decision_function(isolation_matrix.matrix)
     return [
         ModelOutputs(
             xgboost=_classifier_output(xgboost_probabilities[index]),
             random_forest=_classifier_output(random_forest_probabilities[index]),
-            isolation_forest=IsolationForestOutput(
-                raw_score=float(anomaly_scores[index])
+            isolation_forest=(
+                IsolationForestOutput(raw_score=float(anomaly_scores[index]))
+                if anomaly_scores is not None
+                else None
             ),
             diagnostics=matrix.diagnostics,
         )
@@ -332,16 +351,18 @@ def save_model_bundle(
         raise FileExistsError(f"model bundle directory already exists: {path}")
     path.mkdir(parents=True)
     save_preprocessor(bundle.preprocessor, path / "preprocessor.joblib")
-    save_preprocessor(bundle.isolation_preprocessor, path / "isolation_preprocessor.joblib")
+    if bundle.isolation_preprocessor is not None and bundle.isolation_forest is not None:
+        save_preprocessor(bundle.isolation_preprocessor, path / "isolation_preprocessor.joblib")
+        joblib.dump(bundle.isolation_forest, path / "isolation_forest.joblib")
     joblib.dump(bundle.xgboost, path / "xgboost.joblib")
     joblib.dump(bundle.random_forest, path / "random_forest.joblib")
-    joblib.dump(bundle.isolation_forest, path / "isolation_forest.joblib")
     (path / "feature_map.json").write_text(
         json.dumps(bundle.preprocessor.feature_map, indent=2, sort_keys=True) + "\n"
     )
-    (path / "normal_baseline.json").write_text(
-        json.dumps(bundle.normal_baseline_features, indent=2, sort_keys=True) + "\n"
-    )
+    if bundle.normal_baseline_features is not None:
+        (path / "normal_baseline.json").write_text(
+            json.dumps(bundle.normal_baseline_features, indent=2, sort_keys=True) + "\n"
+        )
     if calibration is not None:
         from ml.calibration import save_calibration_state
 
@@ -350,9 +371,14 @@ def save_model_bundle(
     manifest = {
         "bundle_id": bundle.bundle_id,
         "bundle_version": bundle.version,
+        "model_names": [
+            "xgboost",
+            "random_forest",
+            *(["isolation_forest"] if bundle.isolation_forest is not None else []),
+        ],
         "training_split_sha256": bundle.training_split_sha256,
         "normal_baseline_count": bundle.normal_baseline_count,
-        "normal_baseline_feature_count": len(bundle.normal_baseline_features),
+        "normal_baseline_feature_count": len(bundle.normal_baseline_features or {}),
         "calibration_included": calibration is not None,
         "xgboost_class_indices": list(bundle.xgboost_class_indices),
         "feature_names": list(bundle.preprocessor.feature_names),
@@ -381,21 +407,29 @@ def load_model_bundle(directory: str | Path) -> ModelBundle:
         if _file_hash(path / filename) != digest:
             raise ValueError(f"checksum mismatch: {filename}")
     manifest = json.loads((path / "manifest.json").read_text())
-    if manifest["bundle_version"] != MODEL_BUNDLE_VERSION:
+    if manifest["bundle_version"] not in SUPPORTED_MODEL_BUNDLE_VERSIONS:
         raise ValueError("unsupported model bundle version")
+    isolation_preprocessor_path = path / "isolation_preprocessor.joblib"
+    isolation_forest_path = path / "isolation_forest.joblib"
+    has_isolation = isolation_preprocessor_path.is_file() and isolation_forest_path.is_file()
+    baseline_path = path / "normal_baseline.json"
     return ModelBundle(
         bundle_id=manifest["bundle_id"],
         version=manifest["bundle_version"],
         config=ModelConfig.model_validate(manifest["config"]),
         preprocessor=load_preprocessor(path / "preprocessor.joblib"),
-        isolation_preprocessor=load_preprocessor(path / "isolation_preprocessor.joblib"),
         xgboost=joblib.load(path / "xgboost.joblib"),
         xgboost_class_indices=tuple(manifest["xgboost_class_indices"]),
         random_forest=joblib.load(path / "random_forest.joblib"),
-        isolation_forest=joblib.load(path / "isolation_forest.joblib"),
         training_split_sha256=manifest["training_split_sha256"],
-        normal_baseline_count=manifest["normal_baseline_count"],
-        normal_baseline_features=json.loads((path / "normal_baseline.json").read_text()),
+        normal_baseline_count=manifest.get("normal_baseline_count", 0),
+        normal_baseline_features=(
+            json.loads(baseline_path.read_text()) if baseline_path.is_file() else None
+        ),
+        isolation_preprocessor=(
+            load_preprocessor(isolation_preprocessor_path) if has_isolation else None
+        ),
+        isolation_forest=joblib.load(isolation_forest_path) if has_isolation else None,
     )
 
 

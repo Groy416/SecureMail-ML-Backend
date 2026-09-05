@@ -20,7 +20,7 @@ from ml.schema import (
     validate_session,
 )
 
-DEFAULT_BUNDLE = "models/grouped-105-capture-pcap"
+DEFAULT_BUNDLE = "models/Model_XG_RF"
 FORBIDDEN_PAYLOAD_KEYS = frozenset(
     {
         "attachment",

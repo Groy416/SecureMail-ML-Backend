@@ -26,10 +26,10 @@ CALIBRATION_VERSION = "calibration.v2"
 class CalibrationState:
     xgboost: tuple[IsotonicRegression, ...]
     random_forest: tuple[IsotonicRegression, ...]
-    normal_low: float
-    normal_high: float
-    anomaly_threshold: float
-    anomaly_enabled: bool = True
+    normal_low: float | None = None
+    normal_high: float | None = None
+    anomaly_threshold: float | None = None
+    anomaly_enabled: bool = False
     baseline_id: str = "normal-baseline.v1"
     version: str = CALIBRATION_VERSION
 
@@ -79,6 +79,8 @@ def normalized_anomaly_score(
 ) -> float:
     if not state.anomaly_enabled:
         return 0.0
+    if state.normal_low is None or state.normal_high is None:
+        raise ValueError("normal calibration bounds are required")
     denominator = state.normal_high - state.normal_low
     if denominator <= 0:
         raise ValueError("normal calibration scores must have non-zero range")
@@ -130,6 +132,20 @@ def calibrate_scores(
         [RISK_LABELS.index(record.labels.risk_label) for record in records],
         dtype=int,
     )
+    xgboost_calibrators = _fit_calibrators(
+        _probability_matrix(outputs, "xgboost"), labels
+    )
+    random_forest_calibrators = _fit_calibrators(
+        _probability_matrix(outputs, "random_forest"), labels
+    )
+    if all(output.isolation_forest is None for output in outputs):
+        return CalibrationState(
+            xgboost=xgboost_calibrators,
+            random_forest=random_forest_calibrators,
+        )
+    if any(output.isolation_forest is None for output in outputs):
+        raise ValueError("Isolation Forest outputs must be aligned across calibration rows")
+
     normal_raw_scores = np.asarray(
         [
             output.isolation_forest.raw_score
@@ -145,11 +161,8 @@ def calibrate_scores(
     normal_low, normal_high = np.percentile(normal_raw_scores, [1, 99])
     anomaly_enabled = normal_high > normal_low
     state = CalibrationState(
-        xgboost=_fit_calibrators(_probability_matrix(outputs, "xgboost"), labels),
-        random_forest=_fit_calibrators(
-            _probability_matrix(outputs, "random_forest"),
-            labels,
-        ),
+        xgboost=xgboost_calibrators,
+        random_forest=random_forest_calibrators,
         normal_low=float(normal_low),
         normal_high=float(normal_high),
         anomaly_threshold=1.0,
@@ -238,20 +251,21 @@ def save_calibration_state(state: CalibrationState, directory: str | Path) -> No
         )
         + "\n"
     )
-    thresholds_path.write_text(
-        json.dumps(
-            {
-                "baseline_id": state.baseline_id,
-                "normal_low": state.normal_low,
-                "normal_high": state.normal_high,
-                "anomaly_threshold": state.anomaly_threshold,
-                "anomaly_enabled": bool(state.anomaly_enabled),
-            }, 
-            indent=2,
-            sort_keys=True,
+    if state.anomaly_enabled:
+        thresholds_path.write_text(
+            json.dumps(
+                {
+                    "baseline_id": state.baseline_id,
+                    "normal_low": state.normal_low,
+                    "normal_high": state.normal_high,
+                    "anomaly_threshold": state.anomaly_threshold,
+                    "anomaly_enabled": True,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
         )
-        + "\n"
-    )
     joblib.dump(state, state_path)
 
 

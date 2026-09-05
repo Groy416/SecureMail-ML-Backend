@@ -58,8 +58,7 @@ def evaluate_feature_view_ablations(
                 "critical_recall": evaluation.fusion["critical_recall"],
             },
             "isolation_forest": {
-                "f1": evaluation.isolation_forest["f1"],
-                "false_positive_rate": evaluation.isolation_forest["false_positive_rate"],
+                "status": evaluation.isolation_forest["status"],
             },
         }
     return AblationReport(

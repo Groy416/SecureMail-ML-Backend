@@ -29,14 +29,14 @@ def test_evaluation_separates_model_fusion_from_rule_policy() -> None:
         bundle,
         calibration,
         split,
-        fusion_config=FusionConfig(
-            xgboost_weight=0.5,
-            random_forest_weight=0.3,
-            isolation_forest_weight=0.2,
-        ),
+        fusion_config=FusionConfig(),
     )
 
     assert report.model_fusion["confusion_matrix"]
     assert report.fusion["confusion_matrix"]
     assert report.scenario_breakdown
-    assert report.isolation_forest["contamination"] == "auto"
+    assert report.isolation_forest["status"] == "disabled:isolation_forest_removed"
+    assert all(
+        values["isolation_forest"]["status"] == "disabled:isolation_forest_removed"
+        for values in report.scenario_breakdown.values()
+    )

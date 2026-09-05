@@ -70,7 +70,7 @@ def _authorized_payload(**feature_overrides: object) -> dict[str, object]:
 
 
 def test_product_defaults_to_the_packet_backed_shadow_bundle() -> None:
-    assert Path(DEFAULT_BUNDLE) == Path("models/grouped-105-capture-pcap")
+    assert Path(DEFAULT_BUNDLE) == Path("models/Model_XG_RF")
 
 
 def test_product_rejects_mail_body_payloads() -> None:

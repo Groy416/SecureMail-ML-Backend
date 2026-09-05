@@ -1,20 +1,26 @@
 # SecureMailScope ML
 
-## Production scoring
+## Active packet-backed workflow
 
-Frozen bundle: `models/grouped-105-capture-pcap`
-CI regression eval: retrain with `scripts/train_evaluate_grouped_matrix.py` after catalog/matrix changes (synthetic lab_test holdout, not live traffic)
+The reproducible synthetic-PCAP artifacts are:
 
-Roundcap / live extractors must send **session feature JSON only**. This process does not accept PCAP uploads, mail bodies, or secrets.
+- Dataset: `datasets/runs/Dataset-17K` (17,885 sessions from 245 captures).
+- Bundle: `models/Model_XG_RF` (XGBoost + Random Forest, calibrated 60/40).
+- Split: 7,665 train / 2,555 calibration / 7,665 test sessions.
+
+Run the complete named workflow with one command:
 
 ```bash
 uv sync
+uv run python scripts/train_evaluate_grouped_matrix.py
 uv run python -m pytest -q
-uv run python -m ml.product --bundle models/grouped-105-capture-pcap --input sessions.jsonl --output results.jsonl
-uv run python scripts/evaluate_prod_holdouts.py
+uv run python -m ml.product --input sessions.jsonl --output results.jsonl
+uv run python scripts/evaluate_pcap_bundle.py
 ```
 
-`ml.product` returns `risk.class`, `action`, and `rule_findings`. Isolation Forest is recorded but does not change risk or action. Rules are authoritative; ML does not downgrade them. Authorized captures are evaluation/shadow data, not training data.
+Training reuses a validated `Dataset-17K` and never overwrites conflicting artifacts. The active bundle does not fit or persist Isolation Forest; old `models/grouped-105-capture-pcap` bundles remain readable when explicitly selected. Roundcap / live extractors must send **session feature JSON only**. This process does not accept PCAP uploads, mail bodies, or secrets.
+
+`ml.product` returns `risk.class`, `action`, and `rule_findings`. Rules are authoritative; ML does not downgrade them. Authorized captures are evaluation/shadow data, not training data.
 
 ### API handoff
 
@@ -30,7 +36,7 @@ SecureMailScope ML is a Python library-first pipeline for passive email-network 
 
 The governing principle is **evidence first, AI second**. The ML output is advisory. Deterministic protocol, TLS, certificate, and policy rules remain authoritative for security findings.
 
-> **Current status:** the core schema, feature-only dataset factory, PCAP dataset assembly, preprocessing, XGBoost, Random Forest, Isolation Forest, calibration, fusion, rules, explanations, evaluation, ablations, and a profile-driven Docker capture lab are implemented. The repository is not yet a packaged command-line application. See [Spec alignment](#spec-alignment) for the exact gaps between the target specification and the current code.
+> **Current status:** the schema, feature-only and packet-backed dataset paths, preprocessing, calibrated XGBoost/Random Forest workflow, fusion, rules, explanations, evaluation, ablations, and profile-driven Docker capture lab are implemented. Isolation Forest remains only as a legacy-bundle compatibility path. See [Spec alignment](#spec-alignment) for the exact gaps between the target specification and the current code.
 
 The latest committed change, [`f6f1add`](https://github.com/Subham12R/SecureMail-ML/commit/f6f1add), enhanced anomaly detection in the fusion model and added focused unit coverage. The profile-driven lab, POP3 support, `MAIL_HOST` override, and preliminary `legacy-lab` service routing/capture are present in the current repository.
 
@@ -70,7 +76,7 @@ uv sync
 uv run pytest
 ```
 
-The current automated suite collects 51 tests across 15 files. It covers calibration, evaluation, fusion, PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, training-label validation, runtime-profile behavior, handshake detection, product scoring, and Docker-gated lab integration. POP3 runtime support is not yet covered by a dedicated integration test, and the suite does not yet cover every item in the specification’s test plan.
+The current automated suite collects 59 tests across 17 files. It covers calibration, evaluation, fusion, PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, training-label validation, runtime-profile behavior, handshake detection, product scoring, explanation fallback, and Docker-gated lab integration. POP3 runtime support is not yet covered by a dedicated integration test, and the suite does not yet cover every item in the specification’s test plan.
 
 For a concise result:
 
@@ -120,7 +126,7 @@ The lab runner has its own help check:
 uv run python -m datasets.lab.runner --help
 ```
 
-There is no current `python -m securemailscope.ml ...` CLI. The CLI shape in `docs/specs/spec.md` is a future interface, not a command that can be run today.
+There is no packaged `python -m securemailscope.ml ...` CLI. The runnable packet-backed workflow is `scripts/train_evaluate_grouped_matrix.py`; the package-shaped CLI in `docs/specs/spec.md` remains a future interface.
 
 ## Repository layout
 
@@ -136,7 +142,7 @@ There is no current `python -m securemailscope.ml ...` CLI. The CLI shape in `do
 │   ├── features.py                # feature views and model-input map
 │   ├── dataset.py                 # catalog, generators, PCAP assembly, splits, persistence
 │   ├── preprocess.py              # imputation, encoding, scaling, feature map
-│   ├── models.py                  # XGBoost, Random Forest, Isolation Forest, bundles
+│   ├── models.py                  # XGBoost, Random Forest, legacy-bundle loading
 │   ├── calibration.py             # isotonic calibration and anomaly normalization
 │   ├── rules.py                   # deterministic evidence-backed findings
 │   ├── fusion.py                  # model fusion, policy precedence, result contract
@@ -163,7 +169,7 @@ There is no current `python -m securemailscope.ml ...` CLI. The CLI shape in `do
     └── superpowers/               # design/implementation plans for PCAP matrix work
 ```
 
-The following directories are intentionally absent until generated: `models/` and `datasets/runs/`. They are ignored because they contain local model and dataset artifacts, not source code.
+`datasets/runs/Dataset-17K` and `models/Model_XG_RF` are generated local artifacts and are ignored because they contain packet-backed data and model files, not source code. Existing legacy artifact directories are preserved.
 
 ## End-to-end flow
 
@@ -185,11 +191,10 @@ feature config or PCAP
               build_feature_matrix(...)            # fit on train only
                          │
                          ├── XGBoost risk classifier
-                         ├── Random Forest risk classifier
-                         └── Isolation Forest normal baseline
+                         └── Random Forest risk classifier
                                       │
                                       ▼
-              calibrate_scores(validation outputs, validation records)
+              calibrate_scores(calibration outputs, calibration records)
                                       │
                                       ▼
               deterministic rules + weighted fusion
@@ -391,7 +396,7 @@ The run manifest stores the dataset and split hashes, mode, seed, environments, 
 
 ## Models
 
-All three models receive the same combined preprocessed vector in the default baseline. They are independent: no model prediction is passed as an input feature to another model.
+The active bundle trains XGBoost and Random Forest on the same combined preprocessed vector. They are independent: no model prediction is passed as an input feature to another model. Isolation Forest is not part of the active bundle; its fields and artifacts are supported only when loading older bundles.
 
 ### XGBoost risk classifier
 
@@ -427,9 +432,11 @@ n_jobs: configured worker count
 
 It predicts the same risk labels. Its `classes_` output is expanded into the same five-label probability contract so consumers do not need model-specific class handling.
 
-### Isolation Forest
+### Legacy Isolation Forest compatibility
 
-`IsolationForest` is not a risk classifier. It detects behavior that differs from the learned normal baseline:
+Older bundles may contain an `IsolationForest`; it is not trained, persisted, calibrated, fused, evaluated, or explained by the active `Model_XG_RF` workflow. Legacy behavior remains loadable so existing artifacts are not destroyed.
+
+`IsolationForest` is not a risk classifier. In a legacy bundle it detects behavior that differs from the learned normal baseline:
 
 - fit rows are only training records with `risk_label=informational` and `anomaly_label=0`;
 - the raw `decision_function` score is retained, where a higher value is more normal;
@@ -454,29 +461,18 @@ high          = 0.75
 critical      = 1.00
 ```
 
-Isolation Forest is calibrated separately as an anomaly score; it is never treated as a class probability.
+For the active bundle, calibration fits one-vs-rest isotonic calibrators for XGBoost and Random Forest on the 35-capture calibration partition. The disabled anomaly state has no threshold fields. Legacy Isolation Forest scores, when loaded from an old bundle, remain separate and are never treated as class probabilities.
 
 ### Weighted fusion
 
-The default `FusionConfig` is:
+The active `FusionConfig` is:
 
 ```text
-0.50 * calibrated XGBoost risk probability
-+0.30 * calibrated Random Forest risk probability
-+0.20 * normalized Isolation Forest anomaly score
+Fusion = 0.60 * calibrated XGBoost class-probability vector
+       + 0.40 * calibrated Random Forest class-probability vector
 ```
 
-The ensemble score maps back to a risk class at these boundaries:
-
-```text
-[0.000, 0.125) informational
-[0.125, 0.375) low
-[0.375, 0.625) medium
-[0.625, 0.875) high
-[0.875, 1.000] critical
-```
-
-Weights must be non-negative and sum to 1. Learned stacking is not implemented. The fixed weights are a baseline, not an optimization claim.
+The vectors are normalized after isotonic calibration. The fused class is the probability-vector argmax, and the reported scalar risk score is the expected class-center score. Isolation Forest has no active weight. Weights must be non-negative and sum to 1. Learned stacking is not implemented. The fixed weights are a baseline, not an optimization claim.
 
 ### Deterministic rules
 
@@ -508,11 +504,17 @@ The current action selection is ordered as follows:
 4. Low or medium model risk produces `monitor`.
 5. Other model risk produces `prioritize`.
 
-`ml.pipeline.predict_session` merges automatically extracted findings with any supplied findings by finding ID, performs fusion, then attempts explanations. If explanation generation fails, it preserves the prediction and adds a typed diagnostic such as `unavailable:...`; it does not fabricate an explanation.
+`ml.pipeline.predict_session` merges automatically extracted findings with any supplied findings by finding ID, performs two-model fusion, then attempts explanations. If explanation generation fails, it preserves the prediction and adds a typed diagnostic such as `unavailable:...`; it does not fabricate an explanation. Active results expose `anomaly.status="disabled"` and omit Isolation Forest model output.
 
 ## Inference and training recipe
 
-The current public interfaces are Python functions rather than a CLI:
+The active packet-backed workflow is available as a short CLI and reuses the named dataset when present:
+
+```bash
+uv run python scripts/train_evaluate_grouped_matrix.py
+```
+
+It validates the 245-capture matrix, trains only on `lab_train`, calibrates only on `lab_calibration`, evaluates only on `lab_test`, and prints progress plus a fixed-width table. The public Python interfaces remain available:
 
 ```python
 from ml.calibration import calibrate_scores
@@ -540,7 +542,7 @@ print(report_path)
 Important interface details:
 
 - `train_model_bundle` takes a `SplitArtifact`, not a raw `DatasetArtifact`.
-- `ml.models.predict_model_outputs` returns batch outputs without fusion or explanations.
+- `ml.models.predict_model_outputs` returns batch XGBoost/Random Forest outputs without fusion or explanations.
 - `ml.fusion.predict_session` performs model prediction and fusion but does not run explanations.
 - `ml.pipeline.predict_session` is the complete single-session path and is the preferred inference entry point.
 - `ml.explain.explain_session` can be called directly when an `MLResult` already exists.
@@ -562,9 +564,9 @@ The explanation contract is `explanation.v1`.
 
 The default `top_k` is 8 per supervised model, so a normal full-view result contains up to 16 supervised entries.
 
-### Isolation Forest
+### Legacy Isolation Forest explanations
 
-The current anomaly method is `isolation_forest_baseline_perturbation`:
+Only older bundles use `isolation_forest_baseline_perturbation`:
 
 1. calculate the original raw Isolation Forest score;
 2. replace one source feature with its stored normal baseline median or mode;
@@ -576,14 +578,7 @@ The default `top_k` is 8. Explanations describe model behavior, not attacker int
 
 ## Evaluation and ablations
 
-`evaluate_bundle` evaluates only `split.test`. It reports:
-
-- per-class precision, recall, F1, PR-AUC, and ROC-AUC where defined;
-- macro and weighted F1;
-- critical precision and recall;
-- a multiclass Brier score and confusion matrix;
-- Isolation Forest precision, recall, F1, false-positive rate, threshold, and normal/anomalous score distributions; and
-- the same label metrics for fixed weighted fusion.
+`evaluate_bundle` evaluates only `split.test`. It reports per-class precision, recall, F1, PR-AUC, ROC-AUC where defined, macro and weighted F1, critical precision and recall, a multiclass Brier score, and confusion matrices for XGBoost, Random Forest, model fusion, and rule policy. Active reports retain `isolation_forest.status="disabled:isolation_forest_removed"` for schema visibility without anomaly metrics.
 
 Use:
 
@@ -596,7 +591,7 @@ path = save_ablation_report(ablation)
 
 Ablations train/evaluate protocol-session-only, TLS-only, and certificate-only bundles. They are comparison experiments, not the default topology.
 
-The checked-in evaluation snapshot at `evals/evaluation-5e0b4f5acb7f/metrics.json` covers 156 test sessions in `lab_seed_0004`. Its reported critical recall is 0.0 for XGBoost, Random Forest, and fusion; the Isolation Forest F1 is 0.107. The snapshot itself records that the results are synthetic-lab-only and that isotonic calibration may overfit the small calibration partition. These numbers are evidence of the current benchmark snapshot, not production performance or a quality claim.
+The active packet-backed snapshot is generated under `evals/evaluation-*/metrics.json` and records 7,665 `lab_test` sessions. Current numbers are synthetic-lab-only and may overfit the calibration partition; they are not production performance claims.
 
 ## Model and dataset artifacts
 
@@ -610,16 +605,14 @@ The checked-in evaluation snapshot at `evals/evaluation-5e0b4f5acb7f/metrics.jso
 ├── preprocessor.joblib
 ├── xgboost.joblib
 ├── random_forest.joblib
-├── isolation_forest.joblib
 ├── feature_map.json
-├── normal_baseline.json
 ├── calibration.json             # when calibration is supplied
-├── thresholds.json              # when calibration is supplied
+├── thresholds.json              # legacy Isolation Forest calibration only
 ├── calibration.joblib           # when calibration is supplied
 └── checksums.sha256
 ```
 
-The manifest records bundle/version IDs, training split hash, normal-baseline count, feature names, configuration, dependency versions, and whether calibration is included. `load_model_bundle` verifies listed checksums and the bundle version before loading. `save_calibration_state` and `load_calibration_state` manage calibration artifacts separately when needed.
+The manifest records bundle/version IDs, active `model_names`, training split hash, feature names, configuration, dependency versions, and whether calibration is included. `Model_XG_RF` contains only XGBoost and Random Forest artifacts; `load_model_bundle` also accepts existing legacy bundles and verifies listed checksums before loading. `save_calibration_state` and `load_calibration_state` manage the supervised calibration artifacts separately when needed.
 
 The current bundle does not yet write the specification’s `policy_version.json` or `metrics.json`, and it stores dependency versions for provenance without enforcing them at load time.
 

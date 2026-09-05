@@ -128,6 +128,13 @@ def _anomaly_entries(
     result: MLResult,
     top_k: int,
 ) -> list[ExplanationEntry]:
+    if (
+        bundle.isolation_preprocessor is None
+        or bundle.isolation_forest is None
+        or bundle.normal_baseline_features is None
+        or result.anomaly.status != "calibrated"
+    ):
+        return []
     observed = record.features.model_dump(mode="json")
     original_raw_score = result.anomaly.raw_score
     contributions: list[ExplanationEntry] = []
@@ -207,5 +214,5 @@ if __name__ == "__main__":
     result = predict_session(bundle, calibration, split.test[0])
     explanations = explain_session(bundle, split.test[0], result)
     assert len(explanations.supervised) == 16
-    assert len(explanations.anomaly_contributions) == 8
+    assert not explanations.anomaly_contributions
     print(explanations.model_dump(mode="json"))

@@ -9,15 +9,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ml.calibration import load_calibration_state
 from ml.dataset import load_dataset_run
-from ml.evaluate import evaluate_bundle, save_evaluation_report
+from ml.evaluate import evaluate_bundle, format_evaluation_table, save_evaluation_report
 from ml.models import load_model_bundle
 
-BUNDLE = Path("models/grouped-105-capture-pcap")
+DATASET_RUN = Path("datasets/runs/Dataset-17K")
+BUNDLE = Path("models/Model_XG_RF")
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset-run", required=True, type=Path)
+    parser.add_argument("--dataset-run", default=DATASET_RUN, type=Path)
     parser.add_argument("--bundle", default=BUNDLE, type=Path)
     parser.add_argument("--output-root", default=Path("evals"), type=Path)
     return parser
@@ -31,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
         load_calibration_state(args.bundle),
         split,
     )
+    print(format_evaluation_table(report))
     print(save_evaluation_report(report, args.output_root))
     return 0
 

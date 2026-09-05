@@ -4,7 +4,35 @@
 **Status:** Implementation-ready specification v0.1
 **Date:** 2026-09-04
 **Scope:** ML feature engineering, synthetic data generation, model training, inference, fusion, explainability, and evaluation
-**Implementation status:** Partially implemented; see the repository README for current code/spec alignment.
+**Implementation status:** The active packet-backed MVP is implemented; see the repository README for current code/spec alignment.
+
+## Active MVP profile (2026-09-05)
+
+The runnable synthetic-PCAP workflow uses the existing 245-capture matrix with
+105 `lab_train`, 35 `lab_calibration`, and 105 `lab_test` captures. Each capture
+contributes 73 sessions, producing 17,885 records split as 7,665 / 2,555 /
+7,665. The named artifacts are `datasets/runs/Dataset-17K` and
+`models/Model_XG_RF`.
+
+The active bundle trains only XGBoost and Random Forest. Both models are
+calibrated on the calibration partition and fused as
+`0.60 × XGBoost + 0.40 × Random Forest` using calibrated class-probability
+vectors. The fused class is their argmax and the scalar score is the expected
+class-center score. Deterministic rules remain a separate policy layer and may
+raise final severity. The evaluation CLI prints XGBoost, Random Forest, model
+fusion, and rule policy rows in a fixed-width table.
+
+Isolation Forest is not fitted, persisted, calibrated, fused, evaluated, or
+explained in `Model_XG_RF`. Its optional fields exist only so existing legacy
+bundles remain readable. The short training command is:
+
+```bash
+uv run python scripts/train_evaluate_grouped_matrix.py
+```
+
+The command reuses a validated named dataset, refuses conflicting artifacts,
+and remains synthetic-lab-only and shadow-only. The legacy topology described
+below is historical compatibility documentation, not the active MVP model.
 
 ## 1. Purpose
 

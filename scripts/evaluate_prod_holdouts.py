@@ -1,7 +1,6 @@
 """Evaluate the frozen bundle on held-out families and optional PCAP captures."""
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -14,27 +13,16 @@ from datasets.lab.holdout import (
     generate_heldout_family_records,
 )
 from ml.calibration import load_calibration_state
-from ml.evaluate import evaluate_bundle, save_evaluation_report
+from ml.evaluate import evaluate_bundle, format_evaluation_table, save_evaluation_report
 from ml.models import load_model_bundle
 
-BUNDLE = "models/grouped-105-capture-pcap"
+BUNDLE = "models/Model_XG_RF"
 
 
 def _print_report(title: str, path: Path, report) -> None:
     print(title)
     print(path)
-    print(
-        json.dumps(
-            {
-                "test_session_count": report.test_session_count,
-                "fusion_accuracy": report.fusion["accuracy"],
-                "fusion_critical_recall": report.fusion["critical_recall"],
-                "xgboost_accuracy": report.classifiers["xgboost"]["accuracy"],
-                "random_forest_accuracy": report.classifiers["random_forest"]["accuracy"],
-            },
-            indent=2,
-        )
-    )
+    print(format_evaluation_table(report))
 
 
 def main() -> None:

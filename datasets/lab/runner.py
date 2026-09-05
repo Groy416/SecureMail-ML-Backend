@@ -8,6 +8,7 @@ import platform
 import shutil
 import subprocess
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
@@ -176,6 +177,7 @@ def finalize_run(
 def run_training_matrix(
     master_seed: int,
     root: str | Path = "datasets/lab/runs",
+    on_run_complete: Callable[[int, int, LabRun], None] | None = None,
 ) -> tuple[LabRun, ...]:
     profiles = build_training_matrix(master_seed)
     if len(profiles) != MATRIX_CAPTURES:
@@ -186,6 +188,8 @@ def run_training_matrix(
         if result.status == "failed":
             result = run_scenario(profile, Path(root) / "retry-1")
         runs.append(result)
+        if on_run_complete is not None:
+            on_run_complete(len(runs), len(profiles), result)
     return tuple(runs)
 
 
@@ -386,6 +390,7 @@ def extract_run(run: LabRun) -> list[SessionFeatureRecord]:
 def assemble_successful_runs(
     runs: Sequence[LabRun],
     config: DatasetConfig | dict[str, object],
+    on_capture_complete: Callable[[int, int], None] | None = None,
 ):
     successful = [run for run in runs if run.status == "success"]
     if not successful:
@@ -393,12 +398,14 @@ def assemble_successful_runs(
     records: list[SessionFeatureRecord] = []
     manifests: dict[str, ScenarioManifest] = {}
     pcap_sha256: dict[str, str] = {}
-    for run in successful:
+    for completed, run in enumerate(successful, start=1):
         if run.pcap_sha256 is None:
             raise ValueError("successful lab run is missing its PCAP SHA-256")
         extracted = extract_run(run)
         if not extracted:
             raise ValueError("successful lab run produced no extracted sessions")
+        if on_capture_complete is not None:
+            on_capture_complete(completed, len(successful))
         profile = run.profile or _load_profile(run.path)
         if profile is None:
             raise ValueError("successful lab run is missing its runtime profile")

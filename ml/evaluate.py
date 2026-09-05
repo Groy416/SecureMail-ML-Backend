@@ -23,7 +23,7 @@ from ml.calibration import (
 from ml.dataset import SplitArtifact, records_hash
 from ml.fusion import FusionConfig, fuse_session
 from ml.models import (
-    MODEL_BUNDLE_VERSION,
+    SUPPORTED_MODEL_BUNDLE_VERSIONS,
     RISK_LABELS,
     RISK_LABEL_TO_INDEX,
     ModelBundle,
@@ -181,11 +181,65 @@ def _score_distribution(values: np.ndarray) -> dict[str, float] | None:
     }
 
 
+def _format_metric(value: Any) -> str:
+    return "n/a" if value is None else f"{float(value) * 100:.2f}%"
+
+
+def format_evaluation_table(
+    report: EvaluationReport,
+    fusion_config: FusionConfig | None = None,
+) -> str:
+    config = fusion_config or FusionConfig()
+    rows = (
+        ("XGBoost", report.classifiers["xgboost"]),
+        ("Random Forest", report.classifiers["random_forest"]),
+        ("Model fusion", report.model_fusion),
+        ("Rule policy", report.fusion),
+    )
+    headers = (
+        "Model",
+        "Accuracy",
+        "Macro-F1",
+        "Weighted-F1",
+        "Critical precision",
+        "Critical recall",
+    )
+    values = [
+        (
+            name,
+            _format_metric(metrics.get("accuracy")),
+            _format_metric(metrics.get("macro_f1")),
+            _format_metric(metrics.get("weighted_f1")),
+            _format_metric(metrics.get("critical_precision")),
+            _format_metric(metrics.get("critical_recall")),
+        )
+        for name, metrics in rows
+    ]
+    widths = [
+        max(len(headers[index]), *(len(row[index]) for row in values))
+        for index in range(len(headers))
+    ]
+    line = "  ".join("-" * width for width in widths)
+    table = [
+        f"Fusion = {config.xgboost_weight:.2f} × XGBoost + {config.random_forest_weight:.2f} × Random Forest",
+        "  ".join(header.ljust(width) for header, width in zip(headers, widths, strict=True)),
+        line,
+    ]
+    table.extend(
+        "  ".join(
+            value.ljust(width) if index == 0 else value.rjust(width)
+            for index, (value, width) in enumerate(zip(row, widths, strict=True))
+        )
+        for row in values
+    )
+    return "\n".join(table)
+
+
 def _scenario_breakdown(
     records: list[SessionFeatureRecord],
     model_results: list,
     policy_results: list,
-    anomaly_predictions: np.ndarray,
+    anomaly_predictions: np.ndarray | None,
 ) -> dict[str, dict[str, Any]]:
     groups: dict[str, list[int]] = {}
     for index, record in enumerate(records):
@@ -213,9 +267,11 @@ def _scenario_breakdown(
             },
             "model_fusion": _label_metrics(model_predictions, labels),
             "policy_fusion": _label_metrics(policy_predictions, labels),
-            "isolation_forest": {
-                "detection_rate": float(anomaly_predictions[indexes].mean()),
-            },
+            "isolation_forest": (
+                {"detection_rate": float(anomaly_predictions[indexes].mean())}
+                if anomaly_predictions is not None
+                else {"status": "disabled:isolation_forest_removed"}
+            ),
         }
     return breakdown
 
@@ -227,7 +283,7 @@ def evaluate_bundle(
     *,
     fusion_config: FusionConfig | None = None,
 ) -> EvaluationReport:
-    if bundle.version != MODEL_BUNDLE_VERSION:
+    if bundle.version not in SUPPORTED_MODEL_BUNDLE_VERSIONS:
         raise ValueError("unsupported model bundle version")
     outputs = predict_model_outputs(bundle, split.test)
     labels = np.asarray(
@@ -270,52 +326,73 @@ def evaluate_bundle(
         [RISK_LABEL_TO_INDEX[result.risk.risk_class] for result in policy_fusion_results],
         dtype=int,
     )
-    raw_scores = np.asarray(
-        [output.isolation_forest.raw_score for output in outputs],
-        dtype=float,
-    )
-    normal_mask = anomaly_labels == 0
-    if calibration.anomaly_enabled:
-        anomaly_scores = np.asarray(
-            [normalized_anomaly_score(score, calibration) for score in raw_scores],
-            dtype=float,
-        )
-        anomaly_predictions = (anomaly_scores >= calibration.anomaly_threshold).astype(int)
-        anomaly_precision, anomaly_recall, anomaly_f1, _ = precision_recall_fscore_support(
-            anomaly_labels,
-            anomaly_predictions,
-            labels=[1],
-            zero_division=0,
-        )
+    isolation_outputs = [output.isolation_forest for output in outputs]
+    if all(output is None for output in isolation_outputs):
+        anomaly_predictions = None
         isolation_metrics: dict[str, Any] = {
-            "status": "calibrated",
-            "threshold": calibration.anomaly_threshold,
-            "precision": float(anomaly_precision[0]),
-            "recall": float(anomaly_recall[0]),
-            "f1": float(anomaly_f1[0]),
-            "false_positive_rate": (
-                float(anomaly_predictions[normal_mask].mean())
-                if normal_mask.any()
-                else None
-            ),
-        }
-    else:
-        anomaly_predictions = np.zeros(len(raw_scores), dtype=int)
-        isolation_metrics = {
-            "status": "unavailable:degenerate_normal_calibration",
+            "status": "disabled:isolation_forest_removed",
             "threshold": None,
             "precision": None,
             "recall": None,
             "f1": None,
             "false_positive_rate": None,
+            "contamination": None,
+            "normal": None,
+            "anomalous": None,
         }
-    isolation_metrics.update(
-        {
-            "contamination": bundle.config.isolation_contamination,
-            "normal": _score_distribution(raw_scores[anomaly_labels == 0]),
-            "anomalous": _score_distribution(raw_scores[anomaly_labels == 1]),
-        }
-    )
+    elif any(output is None for output in isolation_outputs):
+        raise ValueError("Isolation Forest outputs must be aligned across evaluation rows")
+    else:
+        raw_scores = np.asarray(
+            [output.raw_score for output in isolation_outputs],
+            dtype=float,
+        )
+        normal_mask = anomaly_labels == 0
+        if calibration.anomaly_enabled:
+            anomaly_scores = np.asarray(
+                [normalized_anomaly_score(score, calibration) for score in raw_scores],
+                dtype=float,
+            )
+            anomaly_predictions = (
+                (anomaly_scores >= calibration.anomaly_threshold).astype(int)
+                if calibration.anomaly_threshold is not None
+                else np.zeros(len(raw_scores), dtype=int)
+            )
+            anomaly_precision, anomaly_recall, anomaly_f1, _ = precision_recall_fscore_support(
+                anomaly_labels,
+                anomaly_predictions,
+                labels=[1],
+                zero_division=0,
+            )
+            isolation_metrics = {
+                "status": "calibrated",
+                "threshold": calibration.anomaly_threshold,
+                "precision": float(anomaly_precision[0]),
+                "recall": float(anomaly_recall[0]),
+                "f1": float(anomaly_f1[0]),
+                "false_positive_rate": (
+                    float(anomaly_predictions[normal_mask].mean())
+                    if normal_mask.any()
+                    else None
+                ),
+            }
+        else:
+            anomaly_predictions = np.zeros(len(raw_scores), dtype=int)
+            isolation_metrics = {
+                "status": "unavailable:degenerate_normal_calibration",
+                "threshold": None,
+                "precision": None,
+                "recall": None,
+                "f1": None,
+                "false_positive_rate": None,
+            }
+        isolation_metrics.update(
+            {
+                "contamination": bundle.config.isolation_contamination,
+                "normal": _score_distribution(raw_scores[anomaly_labels == 0]),
+                "anomalous": _score_distribution(raw_scores[anomaly_labels == 1]),
+            }
+        )
     return EvaluationReport(
         schema_version=EVALUATION_VERSION,
         model_bundle_version=bundle.version,

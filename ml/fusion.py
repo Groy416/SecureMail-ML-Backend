@@ -1,16 +1,21 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Literal, Sequence
 
 from pydantic import ConfigDict, Field
 
 from ml.calibration import (
     CalibrationState,
     calibrated_class_probabilities,
-    calibrated_risk_probability,
     normalized_anomaly_score,
+    risk_probability,
 )
-from ml.models import ModelBundle, ModelOutputs, predict_model_outputs
+from ml.models import (
+    MODEL_BUNDLE_VERSION,
+    ModelBundle,
+    ModelOutputs,
+    predict_model_outputs,
+)
 from ml.schema import (
     ContractModel,
     ModelAction,
@@ -21,9 +26,9 @@ from ml.schema import (
 
 
 class FusionConfig(ContractModel):
-    xgboost_weight: float = Field(default=0.50, ge=0, le=1)
-    random_forest_weight: float = Field(default=0.30, ge=0, le=1)
-    isolation_forest_weight: float = Field(default=0.20, ge=0, le=1)
+    xgboost_weight: float = Field(default=0.60, ge=0, le=1)
+    random_forest_weight: float = Field(default=0.40, ge=0, le=1)
+    isolation_forest_weight: float = Field(default=0.0, ge=0, le=1)
 
     def __init__(self, **data: object) -> None:
         super().__init__(**data)
@@ -50,11 +55,12 @@ class SupervisedRiskOutput(ContractModel):
 
 
 class AnomalyResult(ContractModel):
+    status: Literal["calibrated", "disabled"] = "calibrated"
     detected: bool
     score: float = Field(ge=0, le=1)
-    raw_score: float
-    threshold: float = Field(ge=0, le=1)
-    baseline_id: str
+    raw_score: float | None = None
+    threshold: float | None = Field(default=None, ge=0, le=1)
+    baseline_id: str | None = None
 
 
 class RiskResult(ContractModel):
@@ -110,7 +116,6 @@ def _action(
     risk: RiskLabel,
     anomaly_detected: bool,
     minimum_rule_severity: RiskLabel | None,
-    isolation_forest_weight: float,
 ) -> ModelAction:
     if minimum_rule_severity is RiskLabel.CRITICAL:
         return ModelAction.CRITICAL_REVIEW
@@ -121,6 +126,34 @@ def _action(
     if risk in {RiskLabel.LOW, RiskLabel.MEDIUM}:
         return ModelAction.MONITOR
     return ModelAction.PRIORITIZE
+
+
+def _weighted_class_probabilities(
+    xgboost: dict[RiskLabel, float],
+    random_forest: dict[RiskLabel, float],
+    config: FusionConfig,
+) -> dict[RiskLabel, float]:
+    active_weight = config.xgboost_weight + config.random_forest_weight
+    if active_weight <= 0:
+        raise ValueError("XGBoost and Random Forest weights must be positive")
+    return {
+        label: (
+            config.xgboost_weight * xgboost[label]
+            + config.random_forest_weight * random_forest[label]
+        )
+        / active_weight
+        for label in RISK_SEVERITY_ORDER
+    }
+
+
+def fused_class_probabilities(
+    output: ModelOutputs,
+    calibration: CalibrationState,
+    config: FusionConfig | None = None,
+) -> dict[RiskLabel, float]:
+    fusion = config or FusionConfig()
+    xgboost, random_forest = calibrated_class_probabilities(output, calibration)
+    return _weighted_class_probabilities(xgboost, random_forest, fusion)
 
 
 def _session_evidence(record: SessionFeatureRecord) -> list[str]:
@@ -136,33 +169,48 @@ def fuse_session(
     calibration: CalibrationState,
     findings: Sequence[RuleFinding] = (),
     config: FusionConfig | None = None,
+    model_bundle_version: str = MODEL_BUNDLE_VERSION,
 ) -> MLResult:
     fusion = config or FusionConfig()
     xgboost_probabilities, random_forest_probabilities = (
         calibrated_class_probabilities(output, calibration)
     )
-    xgboost_score, random_forest_score = calibrated_risk_probability(
-        output,
-        calibration,
+    fused_probabilities = _weighted_class_probabilities(
+        xgboost_probabilities,
+        random_forest_probabilities,
+        fusion,
     )
-    anomaly_score = normalized_anomaly_score(
-        output.isolation_forest.raw_score,
-        calibration,
+    ensemble_score = risk_probability(fused_probabilities)
+    model_risk = max(
+        fused_probabilities,
+        key=fused_probabilities.get,
     )
-    anomaly_detected = anomaly_score >= calibration.anomaly_threshold
-    weighted_scores = [
-        (fusion.xgboost_weight, xgboost_score),
-        (fusion.random_forest_weight, random_forest_score),
-    ]
-    if anomaly_detected and fusion.isolation_forest_weight > 0:
-        weighted_scores.append((fusion.isolation_forest_weight, anomaly_score))
-    active_weight = sum(weight for weight, _ in weighted_scores)
-    ensemble_score = (
-        sum(weight * score for weight, score in weighted_scores) / active_weight
-        if active_weight > 0
-        else 0.0
-    )
-    model_risk = risk_for_score(ensemble_score)
+    if output.isolation_forest is not None and calibration.anomaly_enabled:
+        anomaly_score = normalized_anomaly_score(
+            output.isolation_forest.raw_score,
+            calibration,
+        )
+        anomaly_detected = (
+            calibration.anomaly_threshold is not None
+            and anomaly_score >= calibration.anomaly_threshold
+        )
+        anomaly = AnomalyResult(
+            status="calibrated",
+            detected=anomaly_detected,
+            score=anomaly_score,
+            raw_score=output.isolation_forest.raw_score,
+            threshold=calibration.anomaly_threshold,
+            baseline_id=calibration.baseline_id,
+        )
+    else:
+        anomaly_score = 0.0
+        anomaly_detected = False
+        anomaly = AnomalyResult(
+            status="disabled",
+            detected=False,
+            score=0.0,
+            baseline_id=None,
+        )
     minimum_rule_severity = highest_rule_severity(findings)
     final_risk = max(
         (model_risk, minimum_rule_severity)
@@ -184,14 +232,16 @@ def fuse_session(
         for reference in finding.evidence_refs
     )
     isolation_notes: list[str] = []
-    if not calibration.anomaly_enabled:
-        isolation_notes.append("unavailable:degenerate_normal_calibration")
-    if fusion.isolation_forest_weight == 0:
-        isolation_notes.append("excluded_from_risk_fusion:unusable_anomaly_scores")
+    if anomaly.status == "disabled":
+        isolation_notes.append(
+            "disabled:isolation_forest_removed"
+            if output.isolation_forest is None
+            else "unavailable:degenerate_normal_calibration"
+        )
     return MLResult(
         capture_id=record.provenance.capture_id,
         session_id=record.provenance.session_id,
-        model_bundle_version="ml-bundle.v1",
+        model_bundle_version=model_bundle_version,
         risk=RiskResult(
             **{
                 "class": final_risk,
@@ -200,20 +250,14 @@ def fuse_session(
                 "minimum_rule_severity": minimum_rule_severity,
             }
         ),
-        anomaly=AnomalyResult(
-            detected=anomaly_detected,
-            score=anomaly_score,
-            raw_score=output.isolation_forest.raw_score,
-            threshold=calibration.anomaly_threshold,
-            baseline_id=calibration.baseline_id,
-        ),
+        anomaly=anomaly,
         model_outputs={
             "xgboost": SupervisedRiskOutput(
                 predicted_class=max(
                     xgboost_probabilities,
                     key=xgboost_probabilities.get,
                 ),
-                risk_probability=xgboost_score,
+                risk_probability=risk_probability(xgboost_probabilities),
                 class_probabilities=xgboost_probabilities,
             ).model_dump(mode="json"),
             "random_forest": SupervisedRiskOutput(
@@ -221,20 +265,25 @@ def fuse_session(
                     random_forest_probabilities,
                     key=random_forest_probabilities.get,
                 ),
-                risk_probability=random_forest_score,
+                risk_probability=risk_probability(random_forest_probabilities),
                 class_probabilities=random_forest_probabilities,
             ).model_dump(mode="json"),
-            "isolation_forest": {
-                "anomaly_score": anomaly_score,
-                "flagged": anomaly_detected,
-            },
+            **(
+                {
+                    "isolation_forest": {
+                        "anomaly_score": anomaly_score,
+                        "flagged": anomaly_detected,
+                    }
+                }
+                if anomaly.status == "calibrated"
+                else {}
+            ),
         },
         rule_findings=list(findings),
         action=_action(
             final_risk,
             anomaly_detected,
             minimum_rule_severity,
-            fusion.isolation_forest_weight,
         ),
         evidence_refs=list(dict.fromkeys(evidence_refs)),
         diagnostics={
@@ -251,7 +300,13 @@ def predict_session(
     findings: Sequence[RuleFinding] = (),
 ) -> MLResult:
     output = predict_model_outputs(bundle, [record])[0]
-    return fuse_session(record, output, calibration, findings)
+    return fuse_session(
+        record,
+        output,
+        calibration,
+        findings,
+        model_bundle_version=bundle.version,
+    )
 
 
 if __name__ == "__main__":
