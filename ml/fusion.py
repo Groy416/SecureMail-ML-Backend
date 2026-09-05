@@ -150,10 +150,17 @@ def fuse_session(
         calibration,
     )
     anomaly_detected = anomaly_score >= calibration.anomaly_threshold
+    weighted_scores = [
+        (fusion.xgboost_weight, xgboost_score),
+        (fusion.random_forest_weight, random_forest_score),
+    ]
+    if anomaly_detected and fusion.isolation_forest_weight > 0:
+        weighted_scores.append((fusion.isolation_forest_weight, anomaly_score))
+    active_weight = sum(weight for weight, _ in weighted_scores)
     ensemble_score = (
-        fusion.xgboost_weight * xgboost_score
-        + fusion.random_forest_weight * random_forest_score
-        + fusion.isolation_forest_weight * anomaly_score
+        sum(weight * score for weight, score in weighted_scores) / active_weight
+        if active_weight > 0
+        else 0.0
     )
     model_risk = risk_for_score(ensemble_score)
     minimum_rule_severity = highest_rule_severity(findings)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sklearn.isotonic import IsotonicRegression
 
 from ml.calibration import CalibrationState
@@ -61,3 +62,34 @@ def test_default_fusion_weights_include_isolation_forest() -> None:
     assert config.xgboost_weight == 0.50
     assert config.random_forest_weight == 0.30
     assert config.isolation_forest_weight == 0.20
+
+
+def test_non_flagged_isolation_score_does_not_lower_model_risk() -> None:
+    probabilities = {label: 0.0 for label in RISK_LABELS}
+    probabilities[RiskLabel.HIGH] = 1.0
+    output = ModelOutputs(
+        xgboost=ClassifierOutput(
+            predicted_class=RiskLabel.HIGH,
+            class_probabilities=probabilities,
+        ),
+        random_forest=ClassifierOutput(
+            predicted_class=RiskLabel.HIGH,
+            class_probabilities=probabilities,
+        ),
+        isolation_forest=IsolationForestOutput(raw_score=0.1),
+        diagnostics={},
+    )
+    calibration = CalibrationState(
+        xgboost=_identity_calibrators(),
+        random_forest=_identity_calibrators(),
+        normal_low=-0.1,
+        normal_high=0.1,
+        anomaly_threshold=0.5,
+        anomaly_enabled=True,
+    )
+
+    result = fuse_session(_record(), output, calibration)
+
+    assert result.anomaly.detected is False
+    assert result.risk.risk_class is RiskLabel.HIGH
+    assert result.risk.score == pytest.approx(0.75)
