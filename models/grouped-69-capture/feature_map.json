@@ -1,0 +1,287 @@
+{
+  "byte_count": {
+    "display_name": "Byte count",
+    "feature_view": "protocol_session",
+    "source_feature": "byte_count"
+  },
+  "cert_chain_valid": {
+    "display_name": "Certificate chain valid",
+    "feature_view": "certificate",
+    "source_feature": "cert_chain_valid"
+  },
+  "cert_expired": {
+    "display_name": "Certificate expired",
+    "feature_view": "certificate",
+    "source_feature": "cert_expired"
+  },
+  "cert_expires_in_days": {
+    "display_name": "Certificate days to expiry",
+    "feature_view": "certificate",
+    "source_feature": "cert_expires_in_days"
+  },
+  "cert_key_algorithm_ECDSA": {
+    "display_name": "Certificate key algorithm",
+    "feature_view": "certificate",
+    "source_feature": "cert_key_algorithm"
+  },
+  "cert_key_algorithm_RSA": {
+    "display_name": "Certificate key algorithm",
+    "feature_view": "certificate",
+    "source_feature": "cert_key_algorithm"
+  },
+  "cert_key_algorithm___MISSING__": {
+    "display_name": "Certificate key algorithm",
+    "feature_view": "certificate",
+    "source_feature": "cert_key_algorithm"
+  },
+  "cert_key_length_bits": {
+    "display_name": "Certificate key length",
+    "feature_view": "certificate",
+    "source_feature": "cert_key_length_bits"
+  },
+  "cert_present": {
+    "display_name": "Certificate present",
+    "feature_view": "certificate",
+    "source_feature": "cert_present"
+  },
+  "cert_signature_algorithm_SHA256-ECDSA": {
+    "display_name": "Certificate signature algorithm",
+    "feature_view": "certificate",
+    "source_feature": "cert_signature_algorithm"
+  },
+  "cert_signature_algorithm_SHA256-RSA": {
+    "display_name": "Certificate signature algorithm",
+    "feature_view": "certificate",
+    "source_feature": "cert_signature_algorithm"
+  },
+  "cert_signature_algorithm___MISSING__": {
+    "display_name": "Certificate signature algorithm",
+    "feature_view": "certificate",
+    "source_feature": "cert_signature_algorithm"
+  },
+  "cert_valid": {
+    "display_name": "Certificate valid",
+    "feature_view": "certificate",
+    "source_feature": "cert_valid"
+  },
+  "cipher_family_3DES": {
+    "display_name": "Cipher family",
+    "feature_view": "tls",
+    "source_feature": "cipher_family"
+  },
+  "cipher_family_AES-CBC": {
+    "display_name": "Cipher family",
+    "feature_view": "tls",
+    "source_feature": "cipher_family"
+  },
+  "cipher_family_AES-GCM": {
+    "display_name": "Cipher family",
+    "feature_view": "tls",
+    "source_feature": "cipher_family"
+  },
+  "cipher_family_CHACHA20-POLY1305": {
+    "display_name": "Cipher family",
+    "feature_view": "tls",
+    "source_feature": "cipher_family"
+  },
+  "cipher_family___MISSING__": {
+    "display_name": "Cipher family",
+    "feature_view": "tls",
+    "source_feature": "cipher_family"
+  },
+  "cipher_suite_TLS_AES_128_GCM_SHA256": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_AES_256_GCM_SHA384": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_CHACHA20_POLY1305_SHA256": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_RSA_WITH_3DES_EDE_CBC_SHA": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_RSA_WITH_AES_128_CBC_SHA": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite_TLS_RSA_WITH_AES_128_GCM_SHA256": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "cipher_suite___MISSING__": {
+    "display_name": "Cipher suite",
+    "feature_view": "tls",
+    "source_feature": "cipher_suite"
+  },
+  "dst_port": {
+    "display_name": "Destination port",
+    "feature_view": "protocol_session",
+    "source_feature": "dst_port"
+  },
+  "forward_secrecy": {
+    "display_name": "Forward secrecy",
+    "feature_view": "tls",
+    "source_feature": "forward_secrecy"
+  },
+  "handshake_failures": {
+    "display_name": "Handshake failures",
+    "feature_view": "protocol_session",
+    "source_feature": "handshake_failures"
+  },
+  "handshake_success": {
+    "display_name": "Handshake success",
+    "feature_view": "protocol_session",
+    "source_feature": "handshake_success"
+  },
+  "hostname_mismatch": {
+    "display_name": "Hostname mismatch",
+    "feature_view": "certificate",
+    "source_feature": "hostname_mismatch"
+  },
+  "key_exchange_ECDHE": {
+    "display_name": "Key exchange",
+    "feature_view": "tls",
+    "source_feature": "key_exchange"
+  },
+  "key_exchange_RSA": {
+    "display_name": "Key exchange",
+    "feature_view": "tls",
+    "source_feature": "key_exchange"
+  },
+  "key_exchange___MISSING__": {
+    "display_name": "Key exchange",
+    "feature_view": "tls",
+    "source_feature": "key_exchange"
+  },
+  "out_of_order_count": {
+    "display_name": "Out-of-order packets",
+    "feature_view": "protocol_session",
+    "source_feature": "out_of_order_count"
+  },
+  "packet_count": {
+    "display_name": "Packet count",
+    "feature_view": "protocol_session",
+    "source_feature": "packet_count"
+  },
+  "protocol_IMAP": {
+    "display_name": "Protocol",
+    "feature_view": "protocol_session",
+    "source_feature": "protocol"
+  },
+  "protocol_POP3": {
+    "display_name": "Protocol",
+    "feature_view": "protocol_session",
+    "source_feature": "protocol"
+  },
+  "protocol_SMTP": {
+    "display_name": "Protocol",
+    "feature_view": "protocol_session",
+    "source_feature": "protocol"
+  },
+  "renegotiation_count": {
+    "display_name": "Renegotiation count",
+    "feature_view": "protocol_session",
+    "source_feature": "renegotiation_count"
+  },
+  "retransmission_count": {
+    "display_name": "Retransmissions",
+    "feature_view": "protocol_session",
+    "source_feature": "retransmission_count"
+  },
+  "session_duration_seconds": {
+    "display_name": "Session duration",
+    "feature_view": "protocol_session",
+    "source_feature": "session_duration_seconds"
+  },
+  "signature_algorithm_ECDSA": {
+    "display_name": "Signature algorithm",
+    "feature_view": "tls",
+    "source_feature": "signature_algorithm"
+  },
+  "signature_algorithm_RSA-PSS": {
+    "display_name": "Signature algorithm",
+    "feature_view": "tls",
+    "source_feature": "signature_algorithm"
+  },
+  "signature_algorithm_SHA1-RSA": {
+    "display_name": "Signature algorithm",
+    "feature_view": "tls",
+    "source_feature": "signature_algorithm"
+  },
+  "signature_algorithm_SHA256-RSA": {
+    "display_name": "Signature algorithm",
+    "feature_view": "tls",
+    "source_feature": "signature_algorithm"
+  },
+  "signature_algorithm___MISSING__": {
+    "display_name": "Signature algorithm",
+    "feature_view": "tls",
+    "source_feature": "signature_algorithm"
+  },
+  "src_port": {
+    "display_name": "Source port",
+    "feature_view": "protocol_session",
+    "source_feature": "src_port"
+  },
+  "starttls_advertised": {
+    "display_name": "STARTTLS advertised",
+    "feature_view": "protocol_session",
+    "source_feature": "starttls_advertised"
+  },
+  "starttls_used": {
+    "display_name": "STARTTLS used",
+    "feature_view": "protocol_session",
+    "source_feature": "starttls_used"
+  },
+  "tls_version_TLS1.0": {
+    "display_name": "TLS version",
+    "feature_view": "tls",
+    "source_feature": "tls_version"
+  },
+  "tls_version_TLS1.2": {
+    "display_name": "TLS version",
+    "feature_view": "tls",
+    "source_feature": "tls_version"
+  },
+  "tls_version_TLS1.3": {
+    "display_name": "TLS version",
+    "feature_view": "tls",
+    "source_feature": "tls_version"
+  },
+  "tls_version___MISSING__": {
+    "display_name": "TLS version",
+    "feature_view": "tls",
+    "source_feature": "tls_version"
+  }
+}

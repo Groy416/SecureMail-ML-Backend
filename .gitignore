@@ -15,10 +15,10 @@ htmlcov/
 !.env.example
 
 # Generated ML artifacts
-models/
+
 datasets/runs/
 graphify-out/
-*.joblib
+
 
 # Lab captures and packet/key material
 datasets/lab/captures/

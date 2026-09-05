@@ -1,0 +1,7 @@
+{
+  "anomaly_enabled": true,
+  "anomaly_threshold": 1.0,
+  "baseline_id": "normal-baseline.v1",
+  "normal_high": -0.05668394298985435,
+  "normal_low": -0.11601372890877315
+}
