@@ -1,0 +1,89 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2",
+    "sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f"
+  ],
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0"
+  },
+  "detail": null,
+  "extractor_version": "pcap-extractor.v1",
+  "parameter_hash": "5d37d93a53a843bf98b3ced5580ae113b0304bc1e710b84cb9d5dff9c5d2b474",
+  "pcap_sha256": "fc4d57d870b40135206d842031671a69ce74c6985395ec68222fd3d31754e8dc",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": "ECDHE-RSA-CHACHA20-POLY1305",
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 6,
+    "connection_count": 73,
+    "derived_seed": 411478696935045081,
+    "destination_port": 143,
+    "environment_id": "lab_train",
+    "profile_sha256": "5d37d93a53a843bf98b3ced5580ae113b0304bc1e710b84cb9d5dff9c5d2b474",
+    "protocol": "IMAP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "ECDSA",
+        "key_length_bits": 256,
+        "state": "valid"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "ChaCha20 negotiation with an ECDSA certificate (IMAP lab profile)",
+      "expected_finding_ids": [
+        "ANOM-002"
+      ],
+      "family": "behavioral_anomaly",
+      "protocol": "IMAP",
+      "repetitions": 1,
+      "risk_label": "medium",
+      "scenario_id": "uncommon_chacha20_ecdsa-imap-lab_train-420042-016",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_CHACHA20_POLY1305_SHA256",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "ECDSA",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.2",
+    "tls_minimum_version": "TLS1.2"
+  },
+  "profile_sha256": "5d37d93a53a843bf98b3ced5580ae113b0304bc1e710b84cb9d5dff9c5d2b474",
+  "scenario_manifest_sha256": "554d731409870c297f3f89429a634443f56dca73d07f7609348837b798232125",
+  "schema_version": "lab-run.v1",
+  "source_revision": "f7d1c7534682765935648ab8f684c785865ac193",
+  "status": "success"
+}

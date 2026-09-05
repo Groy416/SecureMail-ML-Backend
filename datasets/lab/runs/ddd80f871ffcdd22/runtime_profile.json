@@ -1,0 +1,65 @@
+{
+  "schema_version": "lab-runtime-profile.v1",
+  "scenario": {
+    "schema_version": "scenario.v1",
+    "scenario_id": "invalid_certificate_chain_tls12-pop3-lab_calibration-420059-022",
+    "family": "certificate_posture",
+    "description": "Invalid certificate chain on TLS 1.2 (POP3 lab profile)",
+    "protocol": "POP3",
+    "risk_label": "high",
+    "anomaly_label": 1,
+    "expected_finding_ids": [
+      "CERT-003"
+    ],
+    "tls": {
+      "version": "TLS1.2",
+      "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+      "key_exchange": "ECDHE",
+      "forward_secrecy": true,
+      "signature_algorithm": "SHA256-RSA"
+    },
+    "certificate": {
+      "state": "invalid_chain",
+      "key_algorithm": "RSA",
+      "key_length_bits": 2048
+    },
+    "client_behavior": {
+      "starttls_advertised": true,
+      "starttls_used": true,
+      "handshake_attempts": 1
+    },
+    "variation": {
+      "duration_seconds": [
+        1.0,
+        8.0
+      ],
+      "packet_count": [
+        80,
+        260
+      ],
+      "byte_count": [
+        8000,
+        45000
+      ]
+    },
+    "repetitions": 1,
+    "seed": 0
+  },
+  "protocol": "POP3",
+  "environment_id": "lab_calibration",
+  "derived_seed": 1547624151389501887,
+  "destination_port": 110,
+  "client_mode": "starttls",
+  "starttls_advertised": true,
+  "starttls_accepted": true,
+  "tls_minimum_version": "TLS1.2",
+  "tls_maximum_version": "TLS1.2",
+  "cipher_string": null,
+  "certificate_mode": "unknown_ca",
+  "certificate_validity_days": 365,
+  "connection_count": 73,
+  "requires_renegotiation": false,
+  "command_delay_milliseconds": 16,
+  "service": "mail-core",
+  "profile_sha256": "ddd80f871ffcdd22bdcf1a9026005d08aab72a91712cab2331e096d9877b6154"
+}

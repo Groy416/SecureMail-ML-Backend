@@ -1,0 +1,61 @@
+{
+  "schema_version": "lab-runtime-profile.v1",
+  "scenario": {
+    "schema_version": "scenario.v1",
+    "scenario_id": "starttls_advertised_unused-pop3-lab_train-420042-060",
+    "family": "starttls",
+    "description": "STARTTLS advertised but not used (POP3 lab profile)",
+    "protocol": "POP3",
+    "risk_label": "high",
+    "anomaly_label": 1,
+    "expected_finding_ids": [
+      "STLS-001"
+    ],
+    "tls": {
+      "version": "TLS1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "key_exchange": "ECDHE",
+      "forward_secrecy": true,
+      "signature_algorithm": "RSA-PSS"
+    },
+    "certificate": null,
+    "client_behavior": {
+      "starttls_advertised": true,
+      "starttls_used": false,
+      "handshake_attempts": 0
+    },
+    "variation": {
+      "duration_seconds": [
+        1.0,
+        8.0
+      ],
+      "packet_count": [
+        80,
+        260
+      ],
+      "byte_count": [
+        8000,
+        45000
+      ]
+    },
+    "repetitions": 1,
+    "seed": 0
+  },
+  "protocol": "POP3",
+  "environment_id": "lab_train",
+  "derived_seed": 3032530709504688112,
+  "destination_port": 110,
+  "client_mode": "unused_starttls",
+  "starttls_advertised": true,
+  "starttls_accepted": false,
+  "tls_minimum_version": "TLS1.3",
+  "tls_maximum_version": "TLS1.3",
+  "cipher_string": null,
+  "certificate_mode": "valid",
+  "certificate_validity_days": 365,
+  "connection_count": 73,
+  "requires_renegotiation": false,
+  "command_delay_milliseconds": 7,
+  "service": "mail-core",
+  "profile_sha256": "3e8a0361c493e859db3198d9264c7bfecbe65f8fea17e827bba6ae5e007dd945"
+}

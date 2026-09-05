@@ -1,0 +1,75 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": null,
+  "pcap_sha256": "fcaac3146726b45be9e8b68ae8aeda4f8ad5623e089b3db89bf6825bb2ba4042",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "hostname_mismatch",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 1,
+    "connection_count": 334,
+    "derived_seed": 8475466087729563406,
+    "destination_port": 25,
+    "environment_id": "lab_train",
+    "profile_sha256": "90e480cc32ad9de9fa9a727779af58ca61b4155875bff481393983c5772b6e56",
+    "protocol": "SMTP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "hostname_mismatch"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Certificate hostname mismatch (SMTP lab profile)",
+      "expected_finding_ids": [
+        "CERT-004"
+      ],
+      "family": "certificate_posture",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "hostname_mismatch-smtp",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "success"
+}

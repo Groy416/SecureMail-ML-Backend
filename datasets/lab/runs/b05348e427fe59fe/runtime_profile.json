@@ -1,0 +1,63 @@
+{
+  "schema_version": "lab-runtime-profile.v1",
+  "scenario": {
+    "schema_version": "scenario.v1",
+    "scenario_id": "deprecated_tls-smtp",
+    "family": "cryptographic_weakness",
+    "description": "Deprecated TLS 1.0 (SMTP lab profile)",
+    "protocol": "SMTP",
+    "risk_label": "critical",
+    "anomaly_label": 1,
+    "expected_finding_ids": [
+      "TLS-001"
+    ],
+    "tls": {
+      "version": "TLS1.0",
+      "cipher_suite": "TLS_RSA_WITH_AES_128_CBC_SHA",
+      "key_exchange": "RSA",
+      "forward_secrecy": false,
+      "signature_algorithm": "SHA1-RSA"
+    },
+    "certificate": {
+      "state": "valid",
+      "key_algorithm": "RSA",
+      "key_length_bits": 2048
+    },
+    "client_behavior": {
+      "starttls_advertised": true,
+      "starttls_used": true,
+      "handshake_attempts": 1
+    },
+    "variation": {
+      "duration_seconds": [
+        1.0,
+        8.0
+      ],
+      "packet_count": [
+        80,
+        260
+      ],
+      "byte_count": [
+        8000,
+        45000
+      ]
+    },
+    "repetitions": 1,
+    "seed": 0
+  },
+  "protocol": "SMTP",
+  "environment_id": "lab_seed_0002",
+  "derived_seed": 4033467205442103469,
+  "destination_port": 2525,
+  "client_mode": "starttls",
+  "starttls_advertised": true,
+  "starttls_accepted": true,
+  "tls_minimum_version": "TLS1.0",
+  "tls_maximum_version": "TLS1.0",
+  "cipher_string": "AES128-SHA:@SECLEVEL=0",
+  "certificate_mode": "valid",
+  "certificate_validity_days": 365,
+  "connection_count": 1,
+  "command_delay_milliseconds": 19,
+  "profile_sha256": "b05348e427fe59fe4c49508c9603941bbd2ce43b3270402b1d64f1b85a3f39e8"
+}

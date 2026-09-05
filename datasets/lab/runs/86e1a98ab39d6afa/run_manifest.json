@@ -1,0 +1,75 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": "[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)",
+  "pcap_sha256": null,
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": "AES128-SHA:@SECLEVEL=0",
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 20,
+    "connection_count": 334,
+    "derived_seed": 6698920821587576504,
+    "destination_port": 110,
+    "environment_id": "lab_test",
+    "profile_sha256": "86e1a98ab39d6afaede6c39c22ed74a89e96d679ac21eb5e13112314d8374f5a",
+    "protocol": "POP3",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "valid"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "RSA key exchange without forward secrecy (POP3 lab profile)",
+      "expected_finding_ids": [
+        "FS-001"
+      ],
+      "family": "cryptographic_weakness",
+      "protocol": "POP3",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "rsa_no_forward_secrecy-pop3",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_RSA_WITH_AES_128_GCM_SHA256",
+        "forward_secrecy": false,
+        "key_exchange": "RSA",
+        "signature_algorithm": "SHA256-RSA",
+        "version": "TLS1.2"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.2",
+    "tls_minimum_version": "TLS1.2"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "unsupported_in_lab"
+}

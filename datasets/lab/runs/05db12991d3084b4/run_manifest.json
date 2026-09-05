@@ -1,0 +1,71 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": null,
+  "pcap_sha256": "d5a129e2178976559758233d5769cb502daa4ca7db1dd8ccf56984f906d0b1ac",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "unused_starttls",
+    "command_delay_milliseconds": 20,
+    "connection_count": 334,
+    "derived_seed": 7088772598496197496,
+    "destination_port": 110,
+    "environment_id": "lab_test",
+    "profile_sha256": "05db12991d3084b4d8d34161ee41671cc4b66206675a17e028534c46688c3dbc",
+    "protocol": "POP3",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": null,
+      "client_behavior": {
+        "handshake_attempts": 0,
+        "starttls_advertised": true,
+        "starttls_used": false
+      },
+      "description": "STARTTLS advertised but not used (POP3 lab profile)",
+      "expected_finding_ids": [
+        "STLS-001"
+      ],
+      "family": "starttls",
+      "protocol": "POP3",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "starttls_advertised_unused-pop3",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": false,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "success"
+}

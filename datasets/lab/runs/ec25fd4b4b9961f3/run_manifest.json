@@ -1,0 +1,70 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": null,
+  "pcap_sha256": "919dec121b4ea448261e07fab6ff4e34f24caf65a5e99fddbd9b5f0ac9476d80",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "abort_starttls",
+    "command_delay_milliseconds": 3,
+    "connection_count": 3,
+    "derived_seed": 5958235901943175203,
+    "destination_port": 2525,
+    "environment_id": "lab_probe_15",
+    "profile_sha256": "ec25fd4b4b9961f38a7cec26c1f3379cef883b99605160ca372a8e02f6fd250c",
+    "protocol": "SMTP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": null,
+      "client_behavior": {
+        "handshake_attempts": 4,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Repeated TLS handshake failures (SMTP lab profile)",
+      "expected_finding_ids": [
+        "ANOM-001"
+      ],
+      "family": "behavioral_anomaly",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "repeated_handshake_failures-smtp",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "success"
+}

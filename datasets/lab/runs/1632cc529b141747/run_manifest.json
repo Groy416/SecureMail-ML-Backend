@@ -1,0 +1,87 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2",
+    "sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f"
+  ],
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0"
+  },
+  "detail": null,
+  "extractor_version": "pcap-extractor.v1",
+  "parameter_hash": "1632cc529b1417470d97b71e091439a36d0b98341b48b6ec870c2a1d8b5c130d",
+  "pcap_sha256": "f01a14912096b197f42a632fc85eeb968f66d8f1fbaee50fbf69f87f4c0e02bd",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 90,
+    "cipher_string": null,
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 16,
+    "connection_count": 73,
+    "derived_seed": 8235195349433601544,
+    "destination_port": 25,
+    "environment_id": "lab_train",
+    "profile_sha256": "1632cc529b1417470d97b71e091439a36d0b98341b48b6ec870c2a1d8b5c130d",
+    "protocol": "SMTP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 0,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "expiry_advisory"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Valid certificate with a low-risk future expiry advisory (SMTP lab profile)",
+      "expected_finding_ids": [],
+      "family": "certificate_posture",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "low",
+      "scenario_id": "certificate_expiry_advisory-smtp-lab_train-420042-046",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "profile_sha256": "1632cc529b1417470d97b71e091439a36d0b98341b48b6ec870c2a1d8b5c130d",
+  "scenario_manifest_sha256": "ed95e38af62a84c26ab941c4fbb4f4dbf154471ad3bbb577e77e4e215210ab15",
+  "schema_version": "lab-run.v1",
+  "source_revision": "f7d1c7534682765935648ab8f684c785865ac193",
+  "status": "success"
+}

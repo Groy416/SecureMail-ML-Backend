@@ -1,0 +1,89 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2",
+    "sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f"
+  ],
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0"
+  },
+  "detail": " Image smlc1b8718f4084-legacy-lab Building \n Image smlc1b8718f4084-cert-init Building \n Image smlc1b8718f4084-cert-init Built \n Image smlc1b8718f4084-legacy-lab Built \n Network smlc1b8718f4084_mail_lab Creating \n Network smlc1b8718f4084_mail_lab Created \n Container smlc1b8718f4084-account-init-1 Creating \n Container smlc1b8718f4084-cert-init-1 Creating \n Container smlc1b8718f4084-cert-init-1 Created \n Container smlc1b8718f4084-account-init-1 Created \n Container smlc1b8718f4084-legacy-lab-1 Creating \n Container smlc1b8718f4084-legacy-lab-1 Created \n Container smlc1b8718f4084-account-init-1 Starting \n Container smlc1b8718f4084-cert-init-1 Starting \n Container smlc1b8718f4084-cert-init-1 Started \n Container smlc1b8718f4084-account-init-1 Started \n Container smlc1b8718f4084-account-init-1 Waiting \n Container smlc1b8718f4084-cert-init-1 Waiting \n Container smlc1b8718f4084-cert-init-1 Error service \"cert-init\" didn't complete successfully: exit 1\n Container smlc1b8718f4084-account-init-1 Exited \nservice \"cert-init\" didn't complete successfully: exit 1\n",
+  "extractor_version": "pcap-extractor.v1",
+  "parameter_hash": "c1b8718f4084c18f9efc20e264fad849eefbfaac1186a60d2b8ede54bee458d9",
+  "pcap_sha256": null,
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "expired",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 1,
+    "connection_count": 73,
+    "derived_seed": 5964643882769055940,
+    "destination_port": 143,
+    "environment_id": "lab_calibration",
+    "profile_sha256": "c1b8718f4084c18f9efc20e264fad849eefbfaac1186a60d2b8ede54bee458d9",
+    "protocol": "IMAP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "expired"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Expired server certificate (IMAP lab profile)",
+      "expected_finding_ids": [
+        "CERT-001"
+      ],
+      "family": "certificate_posture",
+      "protocol": "IMAP",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "expired_certificate-imap-lab_calibration-420059-018",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "legacy-lab",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "profile_sha256": "c1b8718f4084c18f9efc20e264fad849eefbfaac1186a60d2b8ede54bee458d9",
+  "scenario_manifest_sha256": "ee41aac2934e17a54881883bf1f6aac4fbcc7b069adb83e7a66c08afad721e2d",
+  "schema_version": "lab-run.v1",
+  "source_revision": "c4f4111c11cbe8257bd7b4f8ffe4abe2e016298f",
+  "status": "failed"
+}

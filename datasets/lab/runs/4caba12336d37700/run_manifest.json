@@ -1,0 +1,74 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": null,
+  "pcap_sha256": "bc39e0d1c904c5b6267d47de4453419def46889cbbbe3e335afb3093445beb4b",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": "ECDHE-RSA-CHACHA20-POLY1305",
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 20,
+    "connection_count": 1,
+    "derived_seed": 5637118721973497513,
+    "destination_port": 2525,
+    "environment_id": "lab_probe_16",
+    "profile_sha256": "4caba12336d37700a94a2a9cf4688a5f7a1f1684cde528032c3c02f32c7acf45",
+    "protocol": "SMTP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "valid"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Unusual cipher negotiation (SMTP lab profile)",
+      "expected_finding_ids": [
+        "ANOM-002"
+      ],
+      "family": "behavioral_anomaly",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "medium",
+      "scenario_id": "unusual_cipher_negotiation-smtp",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_RSA_WITH_RC4_128_SHA",
+        "forward_secrecy": false,
+        "key_exchange": "RSA",
+        "signature_algorithm": "SHA1-RSA",
+        "version": "TLS1.2"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.2",
+    "tls_minimum_version": "TLS1.2"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "success"
+}

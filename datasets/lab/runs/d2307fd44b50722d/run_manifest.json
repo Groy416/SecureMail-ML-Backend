@@ -1,0 +1,87 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2",
+    "sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f"
+  ],
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0"
+  },
+  "detail": null,
+  "extractor_version": "pcap-extractor.v1",
+  "parameter_hash": "d2307fd44b50722de0129f13d22b0b26dd38026fa8577b70e473a6785fcea4e0",
+  "pcap_sha256": "014e63ec59524784f3f746bb339f43bc34aa4edefd562183ef1e096198c28176",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 17,
+    "connection_count": 73,
+    "derived_seed": 551792129110995797,
+    "destination_port": 110,
+    "environment_id": "lab_calibration",
+    "profile_sha256": "d2307fd44b50722de0129f13d22b0b26dd38026fa8577b70e473a6785fcea4e0",
+    "protocol": "POP3",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 0,
+      "certificate": {
+        "key_algorithm": "ECDSA",
+        "key_length_bits": 256,
+        "state": "valid"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "TLS 1.2 with a valid ECDSA certificate (POP3 lab profile)",
+      "expected_finding_ids": [],
+      "family": "normal_baseline",
+      "protocol": "POP3",
+      "repetitions": 1,
+      "risk_label": "informational",
+      "scenario_id": "normal_tls12_ecdsa-pop3-lab_calibration-420059-007",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "ECDSA",
+        "version": "TLS1.2"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.2",
+    "tls_minimum_version": "TLS1.2"
+  },
+  "profile_sha256": "d2307fd44b50722de0129f13d22b0b26dd38026fa8577b70e473a6785fcea4e0",
+  "scenario_manifest_sha256": "e688feb6db38b5881d35945cc16917975016aefa088a828402d3ddbedc1ec379",
+  "schema_version": "lab-run.v1",
+  "source_revision": "c4f4111c11cbe8257bd7b4f8ffe4abe2e016298f",
+  "status": "success"
+}

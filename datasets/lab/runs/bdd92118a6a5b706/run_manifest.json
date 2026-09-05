@@ -1,0 +1,85 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2",
+    "sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f"
+  ],
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0"
+  },
+  "detail": null,
+  "extractor_version": "pcap-extractor.v1",
+  "parameter_hash": "bdd92118a6a5b706b6ddbc796fa0acd09560e5d15b89f07dba846518844258ce",
+  "pcap_sha256": "60e95f76053f7b84f98dcd3aeb79bab735d09081c6e5ade5c40a4d931da600e5",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "abort_starttls",
+    "command_delay_milliseconds": 2,
+    "connection_count": 73,
+    "derived_seed": 3124395511417018631,
+    "destination_port": 25,
+    "environment_id": "lab_train",
+    "profile_sha256": "bdd92118a6a5b706b6ddbc796fa0acd09560e5d15b89f07dba846518844258ce",
+    "protocol": "SMTP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": null,
+      "client_behavior": {
+        "handshake_attempts": 4,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Repeated TLS handshake failures (SMTP lab profile)",
+      "expected_finding_ids": [
+        "ANOM-001"
+      ],
+      "family": "behavioral_anomaly",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "repeated_handshake_failures-smtp-lab_train-420042-033",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "profile_sha256": "bdd92118a6a5b706b6ddbc796fa0acd09560e5d15b89f07dba846518844258ce",
+  "scenario_manifest_sha256": "1453fe5a0286f62b66afc27a4d4942d77620f444eef21c37b2fa114c47e06067",
+  "schema_version": "lab-run.v1",
+  "source_revision": "f7d1c7534682765935648ab8f684c785865ac193",
+  "status": "success"
+}

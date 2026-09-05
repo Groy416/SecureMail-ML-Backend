@@ -1,0 +1,89 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2",
+    "sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f"
+  ],
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0"
+  },
+  "detail": " Image smlca0774d3224c-cert-init Building \n Image smlca0774d3224c-legacy-lab Building \n Image smlca0774d3224c-cert-init Built \n Image smlca0774d3224c-legacy-lab Built \n Network smlca0774d3224c_mail_lab Creating \n Network smlca0774d3224c_mail_lab Created \n Container smlca0774d3224c-cert-init-1 Creating \n Container smlca0774d3224c-account-init-1 Creating \n Container smlca0774d3224c-cert-init-1 Created \n Container smlca0774d3224c-account-init-1 Created \n Container smlca0774d3224c-legacy-lab-1 Recreate \n Container smlca0774d3224c-legacy-lab-1 Recreated \n Container smlca0774d3224c-account-init-1 Starting \n Container smlca0774d3224c-cert-init-1 Starting \n Container smlca0774d3224c-cert-init-1 Started \n Container smlca0774d3224c-account-init-1 Started \n Container smlca0774d3224c-account-init-1 Waiting \n Container smlca0774d3224c-cert-init-1 Waiting \n Container smlca0774d3224c-cert-init-1 Error service \"cert-init\" didn't complete successfully: exit 1\nservice \"cert-init\" didn't complete successfully: exit 1\n",
+  "extractor_version": "pcap-extractor.v1",
+  "parameter_hash": "ca0774d3224c85521e2b14a49e2b1934b07e4ca956d4286fc90a88d2eff14a1f",
+  "pcap_sha256": null,
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "expired",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 14,
+    "connection_count": 73,
+    "derived_seed": 8319028412230008746,
+    "destination_port": 25,
+    "environment_id": "lab_calibration",
+    "profile_sha256": "ca0774d3224c85521e2b14a49e2b1934b07e4ca956d4286fc90a88d2eff14a1f",
+    "protocol": "SMTP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "ECDSA",
+        "key_length_bits": 256,
+        "state": "expired"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Expired ECDSA server certificate (SMTP lab profile)",
+      "expected_finding_ids": [
+        "CERT-001"
+      ],
+      "family": "certificate_posture",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "expired_certificate_ecdsa-smtp-lab_calibration-420059-020",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "legacy-lab",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "profile_sha256": "ca0774d3224c85521e2b14a49e2b1934b07e4ca956d4286fc90a88d2eff14a1f",
+  "scenario_manifest_sha256": "9ac80122ee8418fd59ed4931eed73e036c1c0ccc66d1e6090bef0db116ecd985",
+  "schema_version": "lab-run.v1",
+  "source_revision": "c4f4111c11cbe8257bd7b4f8ffe4abe2e016298f",
+  "status": "failed"
+}

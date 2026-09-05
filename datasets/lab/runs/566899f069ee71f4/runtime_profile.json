@@ -1,0 +1,63 @@
+{
+  "schema_version": "lab-runtime-profile.v1",
+  "scenario": {
+    "schema_version": "scenario.v1",
+    "scenario_id": "normal_tls12_valid-imap-lab_train-420042-001",
+    "family": "normal_baseline",
+    "description": "TLS 1.2 with a valid certificate (IMAP lab profile)",
+    "protocol": "IMAP",
+    "risk_label": "informational",
+    "anomaly_label": 0,
+    "expected_finding_ids": [],
+    "tls": {
+      "version": "TLS1.2",
+      "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+      "key_exchange": "ECDHE",
+      "forward_secrecy": true,
+      "signature_algorithm": "SHA256-RSA"
+    },
+    "certificate": {
+      "state": "valid",
+      "key_algorithm": "RSA",
+      "key_length_bits": 2048
+    },
+    "client_behavior": {
+      "starttls_advertised": true,
+      "starttls_used": true,
+      "handshake_attempts": 1
+    },
+    "variation": {
+      "duration_seconds": [
+        1.0,
+        8.0
+      ],
+      "packet_count": [
+        80,
+        260
+      ],
+      "byte_count": [
+        8000,
+        45000
+      ]
+    },
+    "repetitions": 1,
+    "seed": 0
+  },
+  "protocol": "IMAP",
+  "environment_id": "lab_train",
+  "derived_seed": 673298740292005335,
+  "destination_port": 143,
+  "client_mode": "starttls",
+  "starttls_advertised": true,
+  "starttls_accepted": true,
+  "tls_minimum_version": "TLS1.2",
+  "tls_maximum_version": "TLS1.2",
+  "cipher_string": null,
+  "certificate_mode": "valid",
+  "certificate_validity_days": 365,
+  "connection_count": 73,
+  "requires_renegotiation": false,
+  "command_delay_milliseconds": 18,
+  "service": "mail-core",
+  "profile_sha256": "566899f069ee71f4e6d88134943f644345e0f5dac864a66c55822a5b5e74af08"
+}

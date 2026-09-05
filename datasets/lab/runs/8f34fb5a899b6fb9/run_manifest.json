@@ -1,0 +1,73 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": null,
+  "pcap_sha256": "e1aaeb1f449db6da59cb0a273d209f5f4d079772296b2382c591aba7b7abb263",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 7,
+    "cipher_string": null,
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 11,
+    "connection_count": 334,
+    "derived_seed": 515246066864324807,
+    "destination_port": 25,
+    "environment_id": "lab_test",
+    "profile_sha256": "8f34fb5a899b6fb9dfe3f2717b48978a141e9a2357ca2d9ff137c8354c0da07a",
+    "protocol": "SMTP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 0,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "expiring_soon"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Valid certificate approaching expiry (SMTP lab profile)",
+      "expected_finding_ids": [],
+      "family": "certificate_posture",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "low",
+      "scenario_id": "certificate_expires_soon-smtp",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "success"
+}

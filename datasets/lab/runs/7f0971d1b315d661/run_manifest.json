@@ -1,0 +1,90 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2",
+    "sha256:5961d79488def84b030a2e164168dd64fb262ac6a2393a4f77b3ceebe5261d4f"
+  ],
+  "dependency_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.13.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.2.0"
+  },
+  "detail": "281473700517680:error:14094410:SSL routines:ssl3_read_bytes:sslv3 alert handshake failure:s3_pkt.c:1498:SSL alert number 40\n281473700517680:error:1409E0E5:SSL routines:ssl3_write_bytes:ssl handshake failure:s3_pkt.c:659:\n",
+  "extractor_version": "pcap-extractor.v1",
+  "parameter_hash": "7f0971d1b315d661edda1819f6ae0ed0fc6cd405b9b015846ab9ed243363afb8",
+  "pcap_sha256": null,
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "unknown_ca",
+    "certificate_validity_days": 365,
+    "cipher_string": "DES-CBC3-SHA:@SECLEVEL=0",
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 14,
+    "connection_count": 73,
+    "derived_seed": 4386792991018112927,
+    "destination_port": 110,
+    "environment_id": "lab_train",
+    "profile_sha256": "7f0971d1b315d661edda1819f6ae0ed0fc6cd405b9b015846ab9ed243363afb8",
+    "protocol": "POP3",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "valid"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Weak 3DES cipher suite (POP3 lab profile)",
+      "expected_finding_ids": [
+        "TLS-002",
+        "FS-001"
+      ],
+      "family": "cryptographic_weakness",
+      "protocol": "POP3",
+      "repetitions": 1,
+      "risk_label": "critical",
+      "scenario_id": "weak_cipher-pop3-lab_train-420042-063",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+        "forward_secrecy": false,
+        "key_exchange": "RSA",
+        "signature_algorithm": "SHA1-RSA",
+        "version": "TLS1.2"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "legacy-lab",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.2",
+    "tls_minimum_version": "TLS1.2"
+  },
+  "profile_sha256": "7f0971d1b315d661edda1819f6ae0ed0fc6cd405b9b015846ab9ed243363afb8",
+  "scenario_manifest_sha256": "729be8029a19d650e4fcd44f4c39eaf9862a5474c5301da9c0e9728cbb88f59b",
+  "schema_version": "lab-run.v1",
+  "source_revision": "f7d1c7534682765935648ab8f684c785865ac193",
+  "status": "unsupported_in_lab"
+}

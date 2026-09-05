@@ -1,0 +1,73 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": null,
+  "pcap_sha256": "178bf8876a572a9f41b4b3d4694fae89f95a3b4a09ed245178a0a6ad1d0c5417",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "valid",
+    "certificate_validity_days": 365,
+    "cipher_string": "AES128-SHA:@SECLEVEL=0",
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 19,
+    "connection_count": 1,
+    "derived_seed": 4033467205442103469,
+    "destination_port": 2525,
+    "environment_id": "lab_seed_0002",
+    "profile_sha256": "b05348e427fe59fe4c49508c9603941bbd2ce43b3270402b1d64f1b85a3f39e8",
+    "protocol": "SMTP",
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "valid"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Deprecated TLS 1.0 (SMTP lab profile)",
+      "expected_finding_ids": [
+        "TLS-001"
+      ],
+      "family": "cryptographic_weakness",
+      "protocol": "SMTP",
+      "repetitions": 1,
+      "risk_label": "critical",
+      "scenario_id": "deprecated_tls-smtp",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_RSA_WITH_AES_128_CBC_SHA",
+        "forward_secrecy": false,
+        "key_exchange": "RSA",
+        "signature_algorithm": "SHA1-RSA",
+        "version": "TLS1.0"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.0",
+    "tls_minimum_version": "TLS1.0"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "success"
+}

@@ -1,0 +1,75 @@
+{
+  "container_image_ids": [
+    "sha256:014126cde71334f5b4e52a5af24f34635cae85f24218f3b30e6a84f50da79cb2"
+  ],
+  "detail": null,
+  "pcap_sha256": "d0d64840992a7f57b472b9fbe5b06b26bfb8845142197b93a292e78e29456e8c",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "profile": {
+    "certificate_mode": "unknown_ca",
+    "certificate_validity_days": 365,
+    "cipher_string": null,
+    "client_mode": "starttls",
+    "command_delay_milliseconds": 3,
+    "connection_count": 334,
+    "derived_seed": 1344953920945161222,
+    "destination_port": 143,
+    "environment_id": "lab_calibration",
+    "profile_sha256": "8a407b15eebbe1a85a61cab0f213a19273445231816442f16426ee8dac311b86",
+    "protocol": "IMAP",
+    "requires_renegotiation": false,
+    "scenario": {
+      "anomaly_label": 1,
+      "certificate": {
+        "key_algorithm": "RSA",
+        "key_length_bits": 2048,
+        "state": "invalid_chain"
+      },
+      "client_behavior": {
+        "handshake_attempts": 1,
+        "starttls_advertised": true,
+        "starttls_used": true
+      },
+      "description": "Invalid certificate chain (IMAP lab profile)",
+      "expected_finding_ids": [
+        "CERT-003"
+      ],
+      "family": "certificate_posture",
+      "protocol": "IMAP",
+      "repetitions": 1,
+      "risk_label": "high",
+      "scenario_id": "invalid_certificate_chain-imap",
+      "schema_version": "scenario.v1",
+      "seed": 0,
+      "tls": {
+        "cipher_suite": "TLS_AES_256_GCM_SHA384",
+        "forward_secrecy": true,
+        "key_exchange": "ECDHE",
+        "signature_algorithm": "RSA-PSS",
+        "version": "TLS1.3"
+      },
+      "variation": {
+        "byte_count": [
+          8000,
+          45000
+        ],
+        "duration_seconds": [
+          1.0,
+          8.0
+        ],
+        "packet_count": [
+          80,
+          260
+        ]
+      }
+    },
+    "schema_version": "lab-runtime-profile.v1",
+    "service": "mail-core",
+    "starttls_accepted": true,
+    "starttls_advertised": true,
+    "tls_maximum_version": "TLS1.3",
+    "tls_minimum_version": "TLS1.3"
+  },
+  "schema_version": "lab-run.v1",
+  "status": "success"
+}
