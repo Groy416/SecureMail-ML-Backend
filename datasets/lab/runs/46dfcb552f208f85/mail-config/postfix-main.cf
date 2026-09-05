@@ -1,3 +1,0 @@
-smtpd_tls_ciphers = medium
-smtpd_tls_mandatory_ciphers = medium
-smtpd_tls_protocols = !SSLv2, !SSLv3
