@@ -32,7 +32,7 @@ The governing principle is **evidence first, AI second**. The ML output is advis
 
 > **Current status:** the core schema, feature-only dataset factory, PCAP dataset assembly, preprocessing, XGBoost, Random Forest, Isolation Forest, calibration, fusion, rules, explanations, evaluation, ablations, and a profile-driven Docker capture lab are implemented. The repository is not yet a packaged command-line application. See [Spec alignment](#spec-alignment) for the exact gaps between the target specification and the current code.
 
-The latest committed change, [`375b5a8`](https://github.com/Subham12R/SecureMail-ML/commit/375b5a8), refactored the lab around a digest-pinned Docker Mailserver, added protocol-specific runtime profiles and POP3 client support, and made PCAP records carry a parameter-combination hash. The working tree also contains uncommitted lab follow-up changes (POP3 CLI exposure, a `MAIL_HOST` override, and preliminary `legacy-lab` service routing/capture); they are preserved and called out below rather than treated as committed behavior.
+The latest committed change, [`f6f1add`](https://github.com/Subham12R/SecureMail-ML/commit/f6f1add), enhanced anomaly detection in the fusion model and added focused unit coverage. The profile-driven lab, POP3 support, `MAIL_HOST` override, and preliminary `legacy-lab` service routing/capture are present in the current repository.
 
 ## Security and product boundary
 
@@ -70,7 +70,7 @@ uv sync
 uv run pytest
 ```
 
-The current automated suite has 15 collected tests across four files. It covers PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, training-label validation, runtime-profile behavior, handshake detection, and Docker-gated lab integration for SMTP/IMAP. POP3 runtime support is not yet covered by an integration test, and the suite does not yet cover every item in the specification’s test plan.
+The current automated suite collects 51 tests across 15 files. It covers calibration, evaluation, fusion, PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, training-label validation, runtime-profile behavior, handshake detection, product scoring, and Docker-gated lab integration. POP3 runtime support is not yet covered by a dedicated integration test, and the suite does not yet cover every item in the specification’s test plan.
 
 For a concise result:
 
@@ -152,8 +152,8 @@ There is no current `python -m securemailscope.ml ...` CLI. The CLI shape in `do
 │       ├── client.py              # SMTP/IMAP/POP3 STARTTLS client
 │       ├── server.py/certs.py     # profile validation and certificate provisioning
 │       ├── capture.sh             # tcpdump sidecar for ports 25/143/110
-│       ├── Dockerfile.legacy      # uncommitted legacy-provider image
-│       ├── openssl-legacy.cnf     # uncommitted legacy OpenSSL providers
+│       ├── Dockerfile.legacy      # legacy-provider image
+│       ├── openssl-legacy.cnf     # legacy OpenSSL providers
 │       ├── compose.yaml           # internal Docker Mailserver topology
 │       └── README.md              # lab-specific runbook
 ├── evals/                         # checked-in evaluation snapshots
@@ -358,7 +358,7 @@ pcap_dataset = assemble_pcap_dataset(
 )
 ```
 
-Assembly validates that the mode is `synthetic_pcap`, the count matches, all configured environments are represented, scenario manifests match the records, and exactly one 64-character SHA-256 digest exists per capture ID. The lab runner supplies the runtime profile hash as each record’s `parameter_hash`. The current code does not guarantee a successful legacy/weak PCAP from a scenario manifest. The modern path may return `unsupported_in_lab`, and the uncommitted legacy profile is an experimental route that must be verified separately for each TLS/OpenSSL setting.
+Assembly validates that the mode is `synthetic_pcap`, the count matches, all configured environments are represented, scenario manifests match the records, and exactly one 64-character SHA-256 digest exists per capture ID. The lab runner supplies the runtime profile hash as each record’s `parameter_hash`. The current code does not guarantee a successful legacy/weak PCAP from a scenario manifest. The modern and legacy paths may return `unsupported_in_lab` and must be verified separately for each TLS/OpenSSL setting.
 
 ### Persisting a dataset run
 
@@ -645,7 +645,7 @@ Runtime profiles currently resolve protocol-specific destination ports:
 - IMAP: 143; and
 - POP3: 110.
 
-The latest commit’s runner CLI exposes SMTP and IMAP. POP3 support is already present in the client, runtime-profile resolver, Compose service, and passive parser; the current working tree has a pending one-line runner choice-list change that exposes `--protocol POP3`. Check `git status` before relying on that uncommitted option. The same working tree contains a preliminary `legacy-lab` Compose profile and `Dockerfile.legacy`; its runner path selects `profile.service` and starts an in-container tcpdump process, but this follow-up remains uncommitted and is not covered by the current integration suite.
+The runner CLI exposes SMTP, IMAP, and POP3. The repository also contains a preliminary `legacy-lab` Compose profile and `Dockerfile.legacy`; its runner path selects `profile.service` and starts an in-container tcpdump process. Legacy-path behavior is not covered by the current integration suite.
 
 `datasets.lab.runner.run_scenario` performs the following bounded workflow:
 
@@ -746,7 +746,7 @@ The adapter labels extracted rows as `synthetic_pcap` and does not create an `au
 
 ## Git initialization and repository hygiene
 
-This checkout is a Git repository on the `main` branch and currently tracks `origin/main`. The latest committed change is `375b5a8`; this README update and the lab follow-up files shown by `git status` are uncommitted.
+This checkout is a Git repository on the `main` branch and currently tracks `origin/main`. The latest committed change is `f6f1add`.
 
 Inspect the initial state with:
 
@@ -786,12 +786,12 @@ The following specification items are deliberately not described as complete:
 
 1. There is no packaged `securemailscope.ml` CLI or YAML configuration loader; callers use Python APIs and mappings.
 2. The feature generator does not create `synthetic_pcap` traffic. PCAP mode assembles already-extracted rows; the profile runner creates one packet-backed scenario run at a time.
-3. The modern Docker Mailserver path, SMTP/IMAP/POP3 client support, protocol-specific profiles, and single-scenario runner are present. An uncommitted `legacy-lab` Compose profile and preliminary runner routing exist, but they are not covered by the current integration suite; Roundcube and the full batch matrix are not present.
+3. The modern Docker Mailserver path, SMTP/IMAP/POP3 client support, protocol-specific profiles, and single-scenario runner are present. The `legacy-lab` Compose profile and preliminary runner routing are not covered by the current integration suite; Roundcube and the full batch matrix are not present.
 4. `parameter_hash` is now persisted and required for synthetic PCAP records, but splitting still checks only environment and scenario overlap; parameter-combination and capture grouping are not yet enforced as separate split keys.
 5. The model bundle omits `policy_version.json` and `metrics.json`; its manifest is smaller than the target artifact contract and does not enforce dependency-version compatibility.
 6. Evaluation does not yet include a per-scenario/family breakdown or calibration curves, and learned stacking is intentionally disabled.
 7. Explanations do not repeat every model/preprocessor/explanation-library version on each entry.
-8. The repository currently collects 15 focused pytest tests across four files, not the complete schema/dataset/preprocessing/model/policy/explainability/end-to-end matrix listed in the spec. Docker-gated integration tests may skip without a Docker daemon.
+8. The repository currently collects 51 focused pytest tests across 15 files, not the complete schema/dataset/preprocessing/model/policy/explainability/end-to-end matrix listed in the spec. Docker-gated integration tests may skip without a Docker daemon.
 
 These gaps are important boundaries: do not present the current lab capture or checked-in metrics as evidence that the full target system has been delivered.
 
