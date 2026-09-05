@@ -39,6 +39,7 @@ def test_two_model_bundle_does_not_fit_or_persist_isolation_forest(
         predict_model_outputs(bundle, split.validation),
         split.validation,
     )
+    before_reload = predict_model_outputs(bundle, split.test[:3])
     path = save_model_bundle(bundle, tmp_path / "Model_XG_RF", calibration)
     manifest = json.loads((path / "manifest.json").read_text())
 
@@ -48,4 +49,8 @@ def test_two_model_bundle_does_not_fit_or_persist_isolation_forest(
     assert not (path / "normal_baseline.json").exists()
     assert not (path / "thresholds.json").exists()
     reloaded = load_model_bundle(path)
+    after_reload = predict_model_outputs(reloaded, split.test[:3])
     assert reloaded.isolation_forest is None
+    assert [item.model_dump() for item in before_reload] == [
+        item.model_dump() for item in after_reload
+    ]

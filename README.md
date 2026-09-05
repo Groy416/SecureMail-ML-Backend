@@ -591,7 +591,14 @@ path = save_ablation_report(ablation)
 
 Ablations train/evaluate protocol-session-only, TLS-only, and certificate-only bundles. They are comparison experiments, not the default topology.
 
-The active packet-backed snapshot is generated under `evals/evaluation-*/metrics.json` and records 7,665 `lab_test` sessions. Current numbers are synthetic-lab-only and may overfit the calibration partition; they are not production performance claims.
+The active packet-backed snapshot is `evals/evaluation-960668631af9/metrics.json` and records 7,665 `lab_test` sessions. Current numbers are synthetic-lab-only and may overfit the calibration partition; they are not production performance claims.
+
+| Model | Accuracy | Macro-F1 | Weighted-F1 | Critical precision | Critical recall |
+|---|---:|---:|---:|---:|---:|
+| XGBoost | 98.00% | 97.63% | 97.94% | 100.00% | 83.33% |
+| Random Forest | 96.84% | 96.64% | 96.95% | 79.57% | 97.37% |
+| Model fusion (60/40) | **98.10%** | **97.68%** | **98.03%** | 100.00% | 83.33% |
+| Rule policy | 86.67% | 75.14% | 81.88% | 100.00% | 83.33% |
 
 ## Model and dataset artifacts
 

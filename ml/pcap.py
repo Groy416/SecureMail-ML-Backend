@@ -193,6 +193,8 @@ def _openssl_certificate_metadata(der_hex: str) -> dict[str, object]:
     signature_match = re.search(r"Signature Algorithm:\s*([^\n]+)", text)
     expires_at = datetime.fromtimestamp(ssl.cert_time_to_seconds(decoded["notAfter"]), UTC)
     now = datetime.now(UTC)
+    # ponytail: day granularity removes capture-clock jitter; use a recorded
+    # capture timestamp if sub-day expiry precision becomes a requirement.
     remaining_days = (expires_at - now).total_seconds() / 86400
     key_algorithm = "RSA" if key_match and "rsa" in key_match.group(1).lower() else "UNKNOWN"
     signature = signature_match.group(1).strip().upper() if signature_match else "UNKNOWN"

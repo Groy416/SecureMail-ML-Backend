@@ -411,7 +411,13 @@ def load_model_bundle(directory: str | Path) -> ModelBundle:
         raise ValueError("unsupported model bundle version")
     isolation_preprocessor_path = path / "isolation_preprocessor.joblib"
     isolation_forest_path = path / "isolation_forest.joblib"
-    has_isolation = isolation_preprocessor_path.is_file() and isolation_forest_path.is_file()
+    isolation_files = (
+        isolation_preprocessor_path.is_file(),
+        isolation_forest_path.is_file(),
+    )
+    if any(isolation_files) and not all(isolation_files):
+        raise ValueError("model bundle has incomplete Isolation Forest artifacts")
+    has_isolation = all(isolation_files)
     baseline_path = path / "normal_baseline.json"
     return ModelBundle(
         bundle_id=manifest["bundle_id"],
