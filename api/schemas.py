@@ -149,3 +149,131 @@ def build_safe_session_context(record: Any) -> SafeSessionContext:
         dst_port=features.dst_port,
         observations=observations,
     )
+
+
+# ---------------------------------------------------------------------------
+#  Database CRUD & Synthetic Data Schemas
+# ---------------------------------------------------------------------------
+
+
+class AnalysisRecordResponse(BaseModel):
+    """Serialised view of a single analysis DB row."""
+
+    id: int
+    request_id: str
+    session_id: str
+    client_id: str | None
+    timestamp: str
+    record_count: int
+    risk_score: float
+    final_verdict: str
+    rule_score: float
+    rule_triggers_count: int
+    trigger_details: list[Any]
+    ml_scores: dict[str, Any]
+    explanations: dict[str, Any]
+    model_bundle: dict[str, Any]
+    is_synthetic: bool
+    source_label: str | None
+
+
+class AnalysisListResponse(BaseModel):
+    """Paginated list of analysis records."""
+
+    total: int
+    skip: int
+    limit: int
+    records: list[AnalysisRecordResponse]
+
+
+class SyntheticAnalysisRequest(BaseModel):
+    """Body for inserting a synthetic analysis row without running ML inference.
+
+    Use this to load test fixtures, boundary cases, or labelled examples
+    directly into the database. All ML fields must be supplied manually.
+    """
+
+    session_id: str = Field(..., description="Arbitrary session identifier for this synthetic record.")
+    client_id: str | None = Field(default=None, description="Optional client / capture identifier.")
+    source_label: str | None = Field(
+        default="synthetic",
+        description="Human-readable label for the data source (e.g. 'synthetic', 'test-fixture-v1').",
+    )
+    risk_score: float = Field(..., ge=0.0, le=1.0, description="Synthetic risk score in [0, 1].")
+    final_verdict: str = Field(
+        ...,
+        description="Verdict label. One of: benign, suspicious, malicious, informational.",
+    )
+    rule_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Synthetic rule/deterministic score.")
+    rule_triggers_count: int = Field(default=0, ge=0)
+    trigger_details: list[Any] = Field(default_factory=list, description="Optional rule trigger detail objects.")
+    ml_scores: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional per-model raw scores (xgboost, random_forest, etc.).",
+    )
+    explanations: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional SHAP / feature importance explanations.",
+    )
+    model_bundle: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional model bundle metadata snapshot.",
+    )
+
+
+class SyntheticAnalysisResponse(BaseModel):
+    """Confirmation that a synthetic analysis record was inserted."""
+
+    request_id: str
+    status: str = "created"
+    message: str
+    record_id: int
+
+
+class ValidationRecordResponse(BaseModel):
+    """Serialised view of a single validation DB row."""
+
+    id: int
+    request_id: str
+    session_id: str
+    timestamp: str
+    valid: bool
+    record_count: int
+    issues_count: int
+    issues: dict[str, Any]
+
+
+class ValidationListResponse(BaseModel):
+    """Paginated list of validation records."""
+
+    total: int
+    skip: int
+    limit: int
+    records: list[ValidationRecordResponse]
+
+
+class VerdictCount(BaseModel):
+    """A single verdict label and its count."""
+
+    verdict: str
+    count: int
+
+
+class StatsResponse(BaseModel):
+    """Aggregate statistics across all analysis records in the DB."""
+
+    total_analyses: int
+    total_synthetic: int
+    total_real: int
+    avg_risk_score: float | None
+    verdict_distribution: list[VerdictCount]
+    total_validations: int
+    validation_pass_rate: float | None  # 0.0–1.0
+
+
+class DeleteResponse(BaseModel):
+    """Confirmation of a delete operation."""
+
+    deleted: int
+    message: str
+

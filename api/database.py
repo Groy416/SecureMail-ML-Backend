@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, Index, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, Float, Index, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -35,6 +35,10 @@ class AnalysisRecord(Base):
     ml_scores: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
     explanations: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
     model_bundle: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+    # Synthetic / test data flags — real ML runs vs hand-crafted test records
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    source_label: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     __table_args__ = (
         Index("idx_analysis_session_time", "session_id", "timestamp"),

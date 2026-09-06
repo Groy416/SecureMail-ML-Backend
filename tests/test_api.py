@@ -449,3 +449,222 @@ class TestValidationEndpoint:
         assert data["status"] == "invalid"
         assert len(data["errors"]) > 0
 
+
+# ---------------------------------------------------------------------------
+# Data CRUD & Synthetic endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestDataRoutes:
+    """Tests for the database CRUD and synthetic data API endpoints."""
+
+    # ------------------------------------------------------------------
+    # POST /analyses/synthetic
+    # ------------------------------------------------------------------
+
+    def test_create_synthetic_analysis_malicious(self, client: TestClient) -> None:
+        """Insert a synthetic malicious record and verify 201 + fields."""
+        payload = {
+            "session_id": "synth-sess-001",
+            "client_id": "test-client",
+            "source_label": "pytest-fixture",
+            "risk_score": 0.95,
+            "final_verdict": "malicious",
+            "rule_score": 0.8,
+            "rule_triggers_count": 3,
+            "trigger_details": [{"finding_id": "TLS-001", "severity": "critical"}],
+            "ml_scores": {"xgboost": 0.97, "random_forest": 0.93},
+            "explanations": {"top_feature": "tls_version"},
+            "model_bundle": {"version": "test-v1"},
+        }
+        response = client.post("/api/v1/analyses/synthetic", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["status"] == "created"
+        assert "request_id" in data
+        assert "record_id" in data
+        assert data["record_id"] > 0
+
+    def test_create_synthetic_analysis_benign(self, client: TestClient) -> None:
+        """Insert a synthetic benign record."""
+        payload = {
+            "session_id": "synth-sess-002",
+            "risk_score": 0.05,
+            "final_verdict": "benign",
+        }
+        response = client.post("/api/v1/analyses/synthetic", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["status"] == "created"
+
+    def test_create_synthetic_analysis_invalid_verdict(self, client: TestClient) -> None:
+        """Reject unknown verdict values."""
+        payload = {
+            "session_id": "synth-sess-bad",
+            "risk_score": 0.5,
+            "final_verdict": "unknown_verdict",
+        }
+        response = client.post("/api/v1/analyses/synthetic", json=payload)
+        assert response.status_code == 422
+
+    def test_create_synthetic_analysis_score_out_of_range(self, client: TestClient) -> None:
+        """Reject risk_score > 1.0."""
+        payload = {
+            "session_id": "synth-sess-bad2",
+            "risk_score": 1.5,
+            "final_verdict": "benign",
+        }
+        response = client.post("/api/v1/analyses/synthetic", json=payload)
+        assert response.status_code == 422
+
+    # ------------------------------------------------------------------
+    # GET /analyses
+    # ------------------------------------------------------------------
+
+    def test_list_analyses_returns_list(self, client: TestClient) -> None:
+        """List analyses returns a paginated response."""
+        response = client.get("/api/v1/analyses")
+        assert response.status_code == 200
+        data = response.json()
+        assert "total" in data
+        assert "records" in data
+        assert isinstance(data["records"], list)
+        assert data["skip"] == 0
+        assert data["limit"] == 50
+
+    def test_list_analyses_filter_by_verdict(self, client: TestClient) -> None:
+        """Filter analyses by verdict."""
+        response = client.get("/api/v1/analyses?verdict=malicious")
+        assert response.status_code == 200
+        data = response.json()
+        for record in data["records"]:
+            assert record["final_verdict"] == "malicious"
+
+    def test_list_analyses_filter_synthetic(self, client: TestClient) -> None:
+        """Filter analyses to show only synthetic records."""
+        response = client.get("/api/v1/analyses?is_synthetic=true")
+        assert response.status_code == 200
+        data = response.json()
+        for record in data["records"]:
+            assert record["is_synthetic"] is True
+
+    def test_list_analyses_pagination(self, client: TestClient) -> None:
+        """Pagination skip/limit are reflected in the response."""
+        response = client.get("/api/v1/analyses?skip=0&limit=1")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["records"]) <= 1
+        assert data["limit"] == 1
+
+    # ------------------------------------------------------------------
+    # GET /analyses/{request_id}
+    # ------------------------------------------------------------------
+
+    def test_get_analysis_by_request_id(self, client: TestClient) -> None:
+        """Fetch a specific analysis record by its request_id."""
+        # First create one so we have a known request_id
+        payload = {
+            "session_id": "synth-get-test",
+            "risk_score": 0.42,
+            "final_verdict": "suspicious",
+        }
+        create_resp = client.post("/api/v1/analyses/synthetic", json=payload)
+        assert create_resp.status_code == 201
+        request_id = create_resp.json()["request_id"]
+
+        response = client.get(f"/api/v1/analyses/{request_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["request_id"] == request_id
+        assert data["final_verdict"] == "suspicious"
+        assert data["is_synthetic"] is True
+
+    def test_get_analysis_not_found(self, client: TestClient) -> None:
+        """Return 404 for unknown request_id."""
+        response = client.get("/api/v1/analyses/nonexistent-id-xyz")
+        assert response.status_code == 404
+
+    # ------------------------------------------------------------------
+    # GET /analyses/stats
+    # ------------------------------------------------------------------
+
+    def test_stats_returns_expected_fields(self, client: TestClient) -> None:
+        """Stats endpoint returns all expected aggregate fields."""
+        response = client.get("/api/v1/analyses/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert "total_analyses" in data
+        assert "total_synthetic" in data
+        assert "total_real" in data
+        assert "avg_risk_score" in data
+        assert "verdict_distribution" in data
+        assert "total_validations" in data
+        assert "validation_pass_rate" in data
+
+    def test_stats_synthetic_count_increases(self, client: TestClient) -> None:
+        """Inserting a synthetic record increases total_synthetic."""
+        before = client.get("/api/v1/analyses/stats").json()["total_synthetic"]
+        client.post("/api/v1/analyses/synthetic", json={
+            "session_id": "stats-test-sess",
+            "risk_score": 0.1,
+            "final_verdict": "benign",
+        })
+        after = client.get("/api/v1/analyses/stats").json()["total_synthetic"]
+        assert after >= before + 1
+
+    # ------------------------------------------------------------------
+    # GET /validations
+    # ------------------------------------------------------------------
+
+    def test_list_validations_returns_list(self, client: TestClient) -> None:
+        """Validations list endpoint returns paginated structure."""
+        response = client.get("/api/v1/validations")
+        assert response.status_code == 200
+        data = response.json()
+        assert "total" in data
+        assert "records" in data
+        assert isinstance(data["records"], list)
+
+    # ------------------------------------------------------------------
+    # DELETE /analyses/{request_id}
+    # ------------------------------------------------------------------
+
+    def test_delete_analysis_record(self, client: TestClient) -> None:
+        """Delete a specific analysis record by request_id."""
+        create_resp = client.post("/api/v1/analyses/synthetic", json={
+            "session_id": "delete-test-sess",
+            "risk_score": 0.3,
+            "final_verdict": "informational",
+        })
+        request_id = create_resp.json()["request_id"]
+
+        del_resp = client.delete(f"/api/v1/analyses/{request_id}")
+        assert del_resp.status_code == 200
+        assert del_resp.json()["deleted"] == 1
+
+        # Confirm it's gone
+        assert client.get(f"/api/v1/analyses/{request_id}").status_code == 404
+
+    # ------------------------------------------------------------------
+    # DELETE /analyses (bulk)
+    # ------------------------------------------------------------------
+
+    def test_bulk_delete_requires_confirm(self, client: TestClient) -> None:
+        """Bulk delete without confirm=true should return 400."""
+        response = client.delete("/api/v1/analyses")
+        assert response.status_code == 400
+
+    def test_bulk_delete_synthetic_only(self, client: TestClient) -> None:
+        """Bulk delete with synthetic_only=true only removes synthetic rows."""
+        # Insert a synthetic record so there's something to delete
+        client.post("/api/v1/analyses/synthetic", json={
+            "session_id": "bulk-del-test",
+            "risk_score": 0.5,
+            "final_verdict": "suspicious",
+        })
+        response = client.delete("/api/v1/analyses?confirm=true&synthetic_only=true")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["deleted"] >= 1
+
+
