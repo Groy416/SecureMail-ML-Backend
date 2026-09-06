@@ -4,9 +4,11 @@
     "capture_id": "bruno-dummy-pcap",
     "flow_id": "flow-bruno-1",
     "session_id": "sess-bruno-dummy-1",
-    "source_type": "authorized_capture",
-    "scenario_id": "authorized_live",
+    "source_type": "synthetic_pcap",
+    "scenario_id": "normal_baseline",
     "environment_id": "bruno",
+    "parameter_hash": "66b7eadd995bbc087117a0d81f92201284a2b1460178acbe157b6568137f7599",
+    "generator_seed": 424242,
     "evidence_refs": [
       {
         "source": "pcap",
