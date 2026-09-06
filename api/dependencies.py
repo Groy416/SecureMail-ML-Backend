@@ -41,7 +41,7 @@ def load_ml_runtime() -> MLRuntime:
     if _runtime is not None:
         return _runtime
 
-    bundle_path = os.environ.get("SECUREMAIL_BUNDLE_PATH", DEFAULT_BUNDLE)
+    bundle_path = os.environ.get("SECUREMAIL_BUNDLE_PATH", settings.SECUREMAIL_BUNDLE_PATH)
     logger.info("Loading model bundle from %s", bundle_path)
     bundle, calibration = load_runtime(bundle_path)
     _runtime = MLRuntime(
