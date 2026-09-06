@@ -1,7 +1,7 @@
 """FastAPI dependency injection for the SecureMail-ML API.
 
 Provides the loaded model bundle + calibration state as a singleton,
-request ID generation, and a placeholder authentication dependency.
+request ID generation, authentication, and database sessions.
 """
 from __future__ import annotations
 
@@ -9,11 +9,16 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from ml.calibration import CalibrationState
 from ml.models import ModelBundle
 from ml.product import DEFAULT_BUNDLE, load_runtime
+
+from api.config import settings
+from api.database import Base
 
 logger = logging.getLogger("securemailscope.api")
 
@@ -31,11 +36,7 @@ _runtime: MLRuntime | None = None
 
 
 def load_ml_runtime() -> MLRuntime:
-    """Load or return the cached ML runtime singleton.
-
-    The bundle path is configurable via the SECUREMAIL_BUNDLE_PATH
-    environment variable; defaults to ``models/Model_XG_RF``.
-    """
+    """Load or return the cached ML runtime singleton."""
     global _runtime
     if _runtime is not None:
         return _runtime
@@ -57,10 +58,7 @@ def load_ml_runtime() -> MLRuntime:
 
 
 def get_runtime() -> MLRuntime:
-    """FastAPI dependency that returns the loaded runtime.
-
-    Raises RuntimeError if the runtime has not been loaded yet.
-    """
+    """FastAPI dependency that returns the loaded runtime."""
     if _runtime is None:
         raise RuntimeError(
             "ML runtime not loaded. The model bundle may be missing or failed to load."
@@ -80,16 +78,33 @@ def generate_request_id() -> str:
 
 
 def authenticate_request(api_key: str | None = None) -> bool:
-    """Placeholder authentication dependency.
-
-    When SECUREMAIL_API_KEY is set in the environment, requests must
-    provide a matching key. When the variable is unset, all requests
-    are allowed (development mode).
-    """
+    """Placeholder authentication dependency."""
     required_key = os.environ.get("SECUREMAIL_API_KEY")
     if required_key is None:
-        # Development mode: no authentication required
         return True
     if api_key is None or api_key != required_key:
         return False
     return True
+
+
+# --- Database Dependencies ---
+
+engine = create_async_engine(settings.DATABASE_URL, echo=False)
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
+async def init_db() -> None:
+    """Initialize database tables."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency yielding an async database session."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

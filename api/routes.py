@@ -9,7 +9,7 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import ValidationError
 
 from ml.pipeline import predict_session
@@ -20,6 +20,7 @@ from api.dependencies import (
     authenticate_request,
     generate_request_id,
     get_runtime,
+    get_db,
 )
 from api.schemas import (
     AnalysisRequest,
@@ -208,10 +209,11 @@ def list_rules() -> RulesResponse:
         "feature explanations, and diagnostics."
     ),
 )
-def analyze_session(
+async def analyze_session(
     body: AnalysisRequest,
     request: Request,
     authorization: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
 ) -> AnalysisResponse | ErrorResponse:
     """Synchronous single-session analysis endpoint.
 
@@ -221,7 +223,8 @@ def analyze_session(
     3. Schema validation (build SessionFeatureRecord)
     4. Load pinned model bundle and calibration
     5. Run ml.pipeline.predict_session(...)
-    6. Build response envelope
+    6. Persist analysis results to DB
+    7. Build response envelope
     """
     request_id = generate_request_id()
 
@@ -336,7 +339,7 @@ def analyze_session(
             ).model_dump(mode="json"),
         )
 
-    # --- Step 6: Build response ---
+    # --- Step 6: Build response & Persist to DB ---
     result_dict = result.model_dump(mode="json", by_alias=True)
     session_context = build_safe_session_context(record)
 
@@ -347,6 +350,26 @@ def analyze_session(
         if any("unavailable" in v for v in values):
             status = "degraded"
             break
+
+    # Save analysis record to database asynchronously
+    try:
+        db_record = AnalysisRecord(
+            request_id=request_id,
+            session_id=session_context.session_id,
+            client_id=session_context.client_id,
+            record_count=1,
+            risk_score=result.risk_score,
+            final_verdict=result.final_verdict.value if hasattr(result.final_verdict, "value") else str(result.final_verdict),
+            rule_score=result.rule_score,
+            rule_triggers_count=len(result.trigger_details),
+            trigger_details=[t.model_dump(mode="json") for t in result.trigger_details],
+            ml_scores=result.ml_scores.model_dump(mode="json") if hasattr(result.ml_scores, "model_dump") else result.ml_scores,
+            explanations=result.explanations.model_dump(mode="json") if hasattr(result.explanations, "model_dump") else result.explanations,
+            model_bundle=result.model_bundle.model_dump(mode="json") if hasattr(result.model_bundle, "model_dump") else result.model_bundle,
+        )
+        db.add(db_record)
+    except Exception:
+        logger.exception("Failed to queue AnalysisRecord to DB for request %s", request_id)
 
     return AnalysisResponse(
         request_id=request_id,
@@ -366,44 +389,72 @@ def analyze_session(
         "Checks for privacy gate violations, forbidden fields, and schema syntax."
     ),
 )
-def validate_session_payload(
+async def validate_session_payload(
     body: ValidationRequest,
+    db: AsyncSession = Depends(get_db),
 ) -> ValidationResponse:
     """Pre-flight validation endpoint for frontends."""
     request_id = generate_request_id()
 
     try:
-        inference_record(body.record)
-        return ValidationResponse(
+        record = inference_record(body.record)
+        res = ValidationResponse(
             request_id=request_id,
             valid=True,
             status="valid",
             errors=[],
             diagnostics={},
         )
+        session_context = build_safe_session_context(record)
+        session_id_val = session_context.session_id
+        issues_dict = {}
+        valid_val = True
     except PayloadRejected as exc:
-        return ValidationResponse(
+        res = ValidationResponse(
             request_id=request_id,
             valid=False,
             status="rejected",
             errors=[str(exc)],
             diagnostics={"privacy_gate": [str(exc)]},
         )
+        session_id_val = body.record.get("metadata", {}).get("session_id", "unknown") if isinstance(body.record, dict) else "unknown"
+        issues_dict = {"privacy_gate": [str(exc)]}
+        valid_val = False
     except ValidationError as exc:
         errors = [f"{' -> '.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in exc.errors()]
-        return ValidationResponse(
+        res = ValidationResponse(
             request_id=request_id,
             valid=False,
             status="invalid",
             errors=errors,
             diagnostics={"schema_validation": errors},
         )
+        session_id_val = body.record.get("metadata", {}).get("session_id", "unknown") if isinstance(body.record, dict) else "unknown"
+        issues_dict = {"schema_validation": errors}
+        valid_val = False
     except (ValueError, TypeError) as exc:
-        return ValidationResponse(
+        res = ValidationResponse(
             request_id=request_id,
             valid=False,
             status="invalid",
             errors=[str(exc)],
             diagnostics={"schema_validation": [str(exc)]},
         )
+        session_id_val = "unknown"
+        issues_dict = {"schema_validation": [str(exc)]}
+        valid_val = False
 
+    try:
+        db_record = ValidationRecord(
+            request_id=request_id,
+            session_id=session_id_val,
+            valid=valid_val,
+            record_count=1,
+            issues_count=len(res.errors),
+            issues=issues_dict,
+        )
+        db.add(db_record)
+    except Exception:
+        logger.exception("Failed to queue ValidationRecord to DB for request %s", request_id)
+
+    return res

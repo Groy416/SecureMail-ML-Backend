@@ -21,8 +21,15 @@ logger = logging.getLogger("securemailscope.api")
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Application lifespan: load ML runtime at startup, clean up on shutdown."""
+    """Application lifespan: load ML runtime & database at startup, clean up on shutdown."""
     logger.info("Starting SecureMail-ML API...")
+    try:
+        from api.dependencies import init_db
+        await init_db()
+        logger.info("Database tables initialized.")
+    except Exception:
+        logger.exception("Failed to initialize database tables.")
+
     try:
         load_ml_runtime()
         logger.info("ML runtime loaded successfully.")
