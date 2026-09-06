@@ -1,0 +1,19 @@
+meta {
+  name: Analysis statistics
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/analyses/stats
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns aggregate statistics", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.total_analyses).to.be.a("number");
+    expect(res.body.verdict_distribution).to.be.an("array");
+  });
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/health
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns a healthy loaded runtime", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("healthy");
+    expect(res.body.bundle_loaded).to.equal(true);
+  });
+}

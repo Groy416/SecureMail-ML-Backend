@@ -1,0 +1,19 @@
+meta {
+  name: List analyses
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/analyses?limit=1
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns paginated analyses", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.records).to.be.an("array");
+    expect(res.body.limit).to.equal(1);
+  });
+}

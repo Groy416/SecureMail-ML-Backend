@@ -15,6 +15,10 @@ htmlcov/
 !.env.example
 .ghcr.env
 
+# Bruno local environments may contain API keys
+bruno/**/environments/*.bru
+!bruno/**/environments/*.example.bru
+
 # Generated ML artifacts
 
 

@@ -1,0 +1,50 @@
+{
+  "schema_version": "session-features.v1",
+  "provenance": {
+    "capture_id": "bruno-dummy-pcap",
+    "flow_id": "flow-bruno-1",
+    "session_id": "sess-bruno-dummy-1",
+    "source_type": "authorized_capture",
+    "scenario_id": "authorized_live",
+    "environment_id": "bruno",
+    "evidence_refs": [
+      {
+        "source": "pcap",
+        "stream_id": 1,
+        "packet_start": 1,
+        "packet_end": 10,
+        "fields": ["tls.handshake.type"]
+      }
+    ]
+  },
+  "features": {
+    "protocol": "SMTP",
+    "src_port": 50000,
+    "dst_port": 25,
+    "starttls_advertised": true,
+    "starttls_used": true,
+    "handshake_success": true,
+    "handshake_failures": 0,
+    "renegotiation_count": 0,
+    "session_duration_seconds": 1.0,
+    "packet_count": 10,
+    "byte_count": 1000,
+    "retransmission_count": 0,
+    "out_of_order_count": 0,
+    "tls_version": "TLS1.3",
+    "cipher_suite": "TLS_AES_256_GCM_SHA384",
+    "cipher_family": "AES-GCM",
+    "key_exchange": "ECDHE",
+    "signature_algorithm": "RSA-PSS",
+    "forward_secrecy": true,
+    "cert_present": true,
+    "cert_valid": true,
+    "cert_expired": false,
+    "cert_expires_in_days": 200.0,
+    "cert_chain_valid": true,
+    "hostname_mismatch": false,
+    "cert_key_algorithm": "RSA",
+    "cert_key_length_bits": 2048,
+    "cert_signature_algorithm": "SHA256-RSA"
+  }
+}

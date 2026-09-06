@@ -1,0 +1,17 @@
+meta {
+  name: Analysis not found
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/analyses/bruno-request-does-not-exist
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns not found for an unknown request", function() {
+    expect(res.status).to.equal(404);
+  });
+}
