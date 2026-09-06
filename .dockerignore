@@ -1,0 +1,11 @@
+# Deployment allowlist: only the API, inference code, and active model bundle
+*
+!pyproject.toml
+!uv.lock
+!api/
+!api/**
+!ml/
+!ml/**
+!models/
+!models/Model_XG_RF/
+!models/Model_XG_RF/**

@@ -1,0 +1,24 @@
+services:
+  api:
+    image: ${GHCR_IMAGE:-ghcr.io/groy416/securemail-ml-backend}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      SECUREMAIL_BUNDLE_PATH: /app/models/Model_XG_RF
+      DATABASE_URL: sqlite+aiosqlite:////data/securemail.db
+      SECUREMAIL_CORS_ORIGINS: ${SECUREMAIL_CORS_ORIGINS:-*}
+      SECUREMAIL_API_KEY: ${SECUREMAIL_API_KEY:?Set SECUREMAIL_API_KEY in .env}
+    ports:
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_HOST_PORT:-8000}:8000"
+    volumes:
+      - securemail-data:/data
+
+volumes:
+  securemail-data:
