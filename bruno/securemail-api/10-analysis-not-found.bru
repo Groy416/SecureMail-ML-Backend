@@ -10,6 +10,10 @@ get {
   auth: none
 }
 
+headers {
+  Authorization: {{apiKey}}
+}
+
 tests {
   test("returns not found for an unknown request", function() {
     expect(res.status).to.equal(404);

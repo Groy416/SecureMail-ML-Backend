@@ -10,6 +10,10 @@ get {
   auth: none
 }
 
+headers {
+  Authorization: {{apiKey}}
+}
+
 tests {
   test("returns aggregate statistics", function() {
     expect(res.status).to.equal(200);

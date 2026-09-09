@@ -5,17 +5,13 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/analyses?Authorization=246d3456959ff4ffa90c6a257d5cd65468198da505ee8a7dde671d0862429131
+  url: {{baseUrl}}/api/v1/analyses?limit=1
   body: none
   auth: none
 }
 
-params:query {
-  Authorization: 246d3456959ff4ffa90c6a257d5cd65468198da505ee8a7dde671d0862429131
-}
-
 headers {
-  Authorization: 246d3456959ff4ffa90c6a257d5cd65468198da505ee8a7dde671d0862429131
+  Authorization: {{apiKey}}
 }
 
 tests {
