@@ -382,6 +382,8 @@ async def analyze_session(
             ml_scores=jsonable_encoder(result.model_outputs),
             explanations=jsonable_encoder(result.explanations),
             model_bundle={"version": result.model_bundle_version},
+            tls_details=jsonable_encoder(record.features.tls_details),
+            certificate_details=jsonable_encoder(record.features.certificate_details),
         )
         db.add(db_record)
         await db.flush()
@@ -416,6 +418,8 @@ async def analyze_session(
         status=status,
         session=session_context,
         result=result_dict,
+        tls_details=record.features.tls_details,
+        certificate_details=record.features.certificate_details,
         diagnostics=all_diagnostics,
     )
 

@@ -161,6 +161,8 @@ def _preview(record) -> dict[str, object]:
         "cert_present": features.cert_present,
         "cert_expired": features.cert_expired,
         "hostname_mismatch": features.hostname_mismatch,
+        "tls_details": features.tls_details,
+        "certificate_details": features.certificate_details,
         "evidence_refs": [ref.model_dump(mode="json") for ref in record.provenance.evidence_refs],
         "checked_views": ["protocol_session", "tls", "certificate"],
     }

@@ -13,6 +13,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable, Mapping
 
+from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed25519, ed448, rsa
+from cryptography.x509.oid import NameOID
+
 from ml.schema import (
     AnomalyLabel,
     EvidenceReference,
@@ -257,6 +261,144 @@ def _key_exchange(tls_version: str, cipher_suite: str) -> str:
     return "UNKNOWN"
 
 
+def _encryption(cipher_suite: str) -> str:
+    normalized = cipher_suite.upper().replace("-", "_")
+    if "AES_256_GCM" in normalized:
+        return "AES-256-GCM"
+    if "AES_128_GCM" in normalized:
+        return "AES-128-GCM"
+    if "AES_256_CBC" in normalized:
+        return "AES-256-CBC"
+    if "AES_128_CBC" in normalized:
+        return "AES-128-CBC"
+    if "CHACHA20" in normalized:
+        return "ChaCha20-Poly1305"
+    if "3DES" in normalized:
+        return "3DES"
+    if "RC4" in normalized:
+        return "RC4"
+    return "UNKNOWN"
+
+
+def _mac(tls_version: str, cipher_suite: str) -> str:
+    normalized = cipher_suite.upper()
+    if tls_version == "TLS1.3" or "GCM" in normalized or "CHACHA20" in normalized:
+        return "AEAD"
+    for digest in ("SHA512", "SHA384", "SHA256", "SHA1"):
+        if digest in normalized:
+            return digest
+    return "UNKNOWN"
+
+
+def _tls_details(
+    tls_version: str,
+    cipher_suite: str,
+    key_exchange: str,
+    forward_secrecy: bool,
+) -> dict[str, object]:
+    normalized_version = tls_version.replace("TLS", "TLS ", 1) if not tls_version.startswith("TLS ") else tls_version
+    normalized_cipher = cipher_suite.upper()
+    if normalized_version in {"TLS 1.0", "TLS 1.1"} or any(
+        weak_cipher in normalized_cipher for weak_cipher in ("3DES", "RC4")
+    ):
+        posture_rating = "Deprecated"
+    elif not forward_secrecy or key_exchange == "RSA":
+        posture_rating = "Weak"
+    elif normalized_version == "TLS 1.3" or any(
+        strong_cipher in normalized_cipher for strong_cipher in ("GCM", "CHACHA20")
+    ):
+        posture_rating = "Strong"
+    else:
+        posture_rating = "Adequate"
+    return {
+        "version": normalized_version,
+        "cipher_suite": cipher_suite,
+        "key_exchange": key_exchange,
+        "forward_secrecy": forward_secrecy,
+        "encryption": _encryption(cipher_suite),
+        "mac": _mac(tls_version, cipher_suite),
+        "posture_rating": posture_rating,
+    }
+
+
+def _common_name(name: x509.Name) -> str:
+    attributes = name.get_attributes_for_oid(NameOID.COMMON_NAME)
+    return str(attributes[0].value) if attributes else "UNKNOWN"
+
+
+def _public_key_details(public_key: object) -> tuple[str, int | None]:
+    if isinstance(public_key, rsa.RSAPublicKey):
+        return "RSA", public_key.key_size
+    if isinstance(public_key, ec.EllipticCurvePublicKey):
+        return "ECDSA", public_key.key_size
+    if isinstance(public_key, dsa.DSAPublicKey):
+        return "DSA", public_key.key_size
+    if isinstance(public_key, (ed25519.Ed25519PublicKey, ed448.Ed448PublicKey)):
+        return type(public_key).__name__.replace("PublicKey", "").upper(), None
+    return "UNKNOWN", getattr(public_key, "key_size", None)
+
+
+def _certificate_details(der_hex: str) -> dict[str, object]:
+    try:
+        certificates = [
+            x509.load_der_x509_certificate(bytes.fromhex(value))
+            for value in der_hex.split(",")
+            if value
+        ]
+    except (TypeError, ValueError) as exc:
+        raise PcapExtractionUnavailable("tshark returned malformed certificate DER") from exc
+    if not certificates:
+        raise PcapExtractionUnavailable("tshark returned an empty certificate")
+
+    leaf = certificates[0]
+    now = datetime.now(UTC)
+    not_before = leaf.not_valid_before_utc
+    not_after = leaf.not_valid_after_utc
+    if now < not_before:
+        status = "NOT_YET_VALID"
+    elif now > not_after:
+        status = "EXPIRED"
+    else:
+        status = "VALID"
+    key_algorithm, key_size = _public_key_details(leaf.public_key())
+    key_description = f"{key_algorithm}{f' {key_size} bit' if key_size else ''}"
+    signature_hash = leaf.signature_hash_algorithm
+    signature_algorithm = (
+        f"{signature_hash.name.upper()}-{key_algorithm}"
+        if signature_hash is not None
+        else key_algorithm
+    )
+
+    chain: list[dict[str, object]] = []
+    for index, certificate in enumerate(reversed(certificates)):
+        if len(certificates) == 1:
+            level = "leaf"
+        elif index == 0:
+            level = "root"
+        elif index == len(certificates) - 1:
+            level = "leaf"
+        else:
+            level = "intermediate"
+        chain.append(
+            {
+                "level": level,
+                "subject": _common_name(certificate.subject),
+                "valid": certificate.not_valid_before_utc <= now <= certificate.not_valid_after_utc,
+            }
+        )
+
+    return {
+        "domain": _common_name(leaf.subject),
+        "issuer": _common_name(leaf.issuer),
+        "status": status,
+        "valid_from": not_before.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        "valid_until": not_after.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        "key_algorithm": key_description,
+        "signature_algorithm": signature_algorithm,
+        "chain": chain,
+    }
+
+
 def _openssl_certificate_metadata(der_hex: str) -> dict[str, object]:
     try:
         # tshark emits repeated certificate fields as comma-separated DER values;
@@ -288,7 +430,7 @@ def _openssl_certificate_metadata(der_hex: str) -> dict[str, object]:
         "cert_key_algorithm": key_algorithm,
         "cert_key_length_bits": int(key_match.group(2)) if key_match else None,
         "cert_signature_algorithm": signature,
-        "certificate_path": certificate_path,
+        "certificate_details": _certificate_details(der_hex),
     }
 
 
@@ -469,6 +611,11 @@ def extract_sessions(
         end = float(rows[-1]["frame.time_epoch"])
         packet_numbers = [int(row["frame.number"]) for row in rows]
         key_exchange = _key_exchange(tls_version or "", cipher_suite or "")
+        tls_details = (
+            _tls_details(tls_version, cipher_suite, key_exchange, key_exchange in {"ECDHE", "DHE"})
+            if handshake_success and tls_version and cipher_suite
+            else None
+        )
         records.append(
             SessionFeatureRecord(
                 schema_version="session-features.v1",
@@ -529,6 +676,8 @@ def extract_sessions(
                     cert_key_algorithm=certificate.get("cert_key_algorithm"),
                     cert_key_length_bits=certificate.get("cert_key_length_bits"),
                     cert_signature_algorithm=certificate.get("cert_signature_algorithm"),
+                    tls_details=tls_details,
+                    certificate_details=certificate.get("certificate_details"),
                 ),
                 labels=SessionLabels(
                     risk_label=RiskLabel.INFORMATIONAL

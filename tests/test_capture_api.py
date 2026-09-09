@@ -74,6 +74,25 @@ def _record() -> SessionFeatureRecord:
             cert_key_algorithm="RSA",
             cert_key_length_bits=2048,
             cert_signature_algorithm="SHA256-RSA",
+            tls_details={
+                "version": "TLS 1.3",
+                "cipher_suite": "TLS_AES_256_GCM_SHA384",
+                "key_exchange": "ECDHE",
+                "forward_secrecy": True,
+                "encryption": "AES-256-GCM",
+                "mac": "AEAD",
+                "posture_rating": "Strong",
+            },
+            certificate_details={
+                "domain": "mail.example.test",
+                "issuer": "Example CA",
+                "status": "VALID",
+                "valid_from": "2026-01-01T00:00:00Z",
+                "valid_until": "2027-01-01T00:00:00Z",
+                "key_algorithm": "RSA 2048 bit",
+                "signature_algorithm": "SHA256-RSA",
+                "chain": [],
+            },
         ),
         labels=SessionLabels(
             risk_label=RiskLabel.INFORMATIONAL,
@@ -161,3 +180,5 @@ def test_upload_queues_a_job_and_worker_persists_session_json(
     sessions = client.get(f"/api/v1/capture-jobs/{payload['job_id']}/sessions")
     assert sessions.status_code == 200
     assert sessions.json()["records"][0]["provenance"]["session_id"] == record.provenance.session_id
+    assert sessions.json()["records"][0]["features"]["tls_details"]["posture_rating"] == "Strong"
+    assert sessions.json()["sessions"][0]["tls_details"]["posture_rating"] == "Strong"

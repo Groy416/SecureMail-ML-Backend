@@ -208,6 +208,38 @@ class TestAnalysisHappyPath:
         assert "source" in result["risk"]
         assert "action" in result
 
+    def test_structured_security_details_round_trip(self, client: TestClient) -> None:
+        record = _valid_authorized_payload()
+        record["features"]["tls_details"] = {
+            "version": "TLS 1.3",
+            "cipher_suite": "TLS_AES_256_GCM_SHA384",
+            "key_exchange": "ECDHE",
+            "forward_secrecy": True,
+            "encryption": "AES-256-GCM",
+            "mac": "AEAD",
+            "posture_rating": "Strong",
+        }
+        record["features"]["certificate_details"] = {
+            "domain": "mail.example.test",
+            "issuer": "Example CA",
+            "status": "VALID",
+            "valid_from": "2026-01-01T00:00:00Z",
+            "valid_until": "2027-01-01T00:00:00Z",
+            "key_algorithm": "RSA 2048 bit",
+            "signature_algorithm": "SHA256-RSA",
+            "chain": [],
+        }
+        posted = client.post("/api/v1/analyses", json=_analysis_request(record))
+        assert posted.status_code == 200
+        assert posted.json()["tls_details"]["posture_rating"] == "Strong"
+        assert posted.json()["certificate_details"]["domain"] == "mail.example.test"
+
+        request_id = posted.json()["request_id"]
+        stored = client.get(f"/api/v1/analyses/{request_id}")
+        assert stored.status_code == 200
+        assert stored.json()["tls_details"]["cipher_suite"] == "TLS_AES_256_GCM_SHA384"
+        assert stored.json()["certificate_details"]["status"] == "VALID"
+
     def test_response_contains_session_context(
         self, client: TestClient
     ) -> None:

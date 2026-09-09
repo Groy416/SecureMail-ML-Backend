@@ -250,6 +250,10 @@ class SessionFeatures(ContractModel):
     cert_key_length_bits: PositiveInt | None = None
     cert_signature_algorithm: NonEmptyString | None = None
 
+    # Evidence-derived presentation metadata; excluded from MODEL_INPUT_FEATURES.
+    tls_details: dict[str, Any] | None = None
+    certificate_details: dict[str, Any] | None = None
+
     @model_validator(mode="after")
     def validate_tls_fields(self) -> Self:
         tls_fields = (

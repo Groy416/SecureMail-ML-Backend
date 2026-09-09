@@ -88,6 +88,8 @@ class AnalysisResponse(BaseModel):
     status: Literal["complete", "degraded"]
     session: SafeSessionContext
     result: dict[str, Any]
+    tls_details: dict[str, Any] | None = None
+    certificate_details: dict[str, Any] | None = None
     diagnostics: dict[str, list[str]] = Field(default_factory=dict)
 
 
@@ -220,6 +222,8 @@ class CaptureSessionPreview(BaseModel):
     cert_present: bool | None
     cert_expired: bool | None
     hostname_mismatch: bool | None
+    tls_details: dict[str, Any] | None = None
+    certificate_details: dict[str, Any] | None = None
     evidence_refs: list[dict[str, Any]]
     checked_views: list[Literal["protocol_session", "tls", "certificate"]]
 
@@ -286,6 +290,8 @@ class AnalysisRecordResponse(BaseModel):
     ml_scores: dict[str, Any]
     explanations: dict[str, Any]
     model_bundle: dict[str, Any]
+    tls_details: dict[str, Any] | None = None
+    certificate_details: dict[str, Any] | None = None
     is_synthetic: bool
     source_label: str | None
 

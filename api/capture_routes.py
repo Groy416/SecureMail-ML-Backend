@@ -83,6 +83,8 @@ def _analysis_response(row: AnalysisRecord) -> AnalysisRecordResponse:
         ml_scores=row.ml_scores or {},
         explanations=row.explanations or {},
         model_bundle=row.model_bundle or {},
+        tls_details=row.tls_details,
+        certificate_details=row.certificate_details,
         is_synthetic=row.is_synthetic,
         source_label=row.source_label,
     )

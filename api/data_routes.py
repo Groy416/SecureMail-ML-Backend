@@ -76,6 +76,8 @@ def _row_to_analysis(row: AnalysisRecord) -> AnalysisRecordResponse:
         ml_scores=row.ml_scores if row.ml_scores is not None else {},
         explanations=row.explanations if row.explanations is not None else {},
         model_bundle=row.model_bundle if row.model_bundle is not None else {},
+        tls_details=row.tls_details,
+        certificate_details=row.certificate_details,
         is_synthetic=row.is_synthetic,
         source_label=row.source_label,
     )

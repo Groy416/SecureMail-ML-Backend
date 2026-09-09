@@ -127,6 +127,13 @@ does not run inference, and PCAP files must never be sent to `/analyses`.
 GET /analyses?capture_id=pcap-0123abcd&protocol=SMTP&from=2026-09-01T00:00:00Z
 ```
 
+Analysis responses and persisted analysis records also include nullable
+`tls_details` and `certificate_details` objects when the authorized PCAP
+contained the corresponding evidence. These are derived from negotiated TLS
+and parsed X.509 metadata; unavailable evidence is `null`, never fixture data.
+`GET /capture-jobs/{job_id}/sessions` exposes the same objects in both the
+session previews and the validated `records` payloads.
+
 `GET /analyses/stats` accepts `capture_id`, `protocol`, `from`, and `to`.
 Its authoritative dashboard fields are `total_analyses`, `flagged_sessions`,
 `evidence_archived`, `avg_risk_score`, `verdict_distribution`, and

@@ -114,6 +114,8 @@ def _ensure_analysis_columns(sync_conn) -> None:
             "protocol": "VARCHAR(16)",
             "posture": "VARCHAR(32)",
             "evidence_ref_count": "INTEGER DEFAULT 0",
+            "tls_details": "JSON",
+            "certificate_details": "JSON",
         }
         for name, spec in additions.items():
             if name not in existing:

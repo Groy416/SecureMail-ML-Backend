@@ -57,6 +57,8 @@ class AnalysisRecord(Base):
     ml_scores: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     explanations: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     model_bundle: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    tls_details: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    certificate_details: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     # Synthetic / test data flags — real ML runs vs hand-crafted test records
     is_synthetic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
