@@ -5,7 +5,7 @@ docs/superpowers/specs/2026-09-05-frontend-api-ml-dashboard-design.md
 """
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -45,12 +45,6 @@ class SafeSessionContext(BaseModel):
 class AuthLoginRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=320)
     password: str = Field(..., min_length=1, max_length=256)
-
-
-class AuthRegisterRequest(BaseModel):
-    email: str = Field(..., min_length=3, max_length=320)
-    password: str = Field(..., min_length=1, max_length=256)
-    display_name: Optional[str] = Field(None, max_length=120)
 
 
 class ProfileUpdateRequest(BaseModel):
