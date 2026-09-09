@@ -5,16 +5,37 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.auth import allowed_email, get_current_user, issue_access_token, revoke_access_token, verify_password
+from api.auth import allowed_email, get_current_user, hash_password, issue_access_token, revoke_access_token, verify_password
 from api.database import User
 from api.dependencies import get_db
-from api.schemas import AuthLoginRequest, AuthResponse, LogoutResponse, ProfileResponse, ProfileUpdateRequest
+from api.schemas import AuthLoginRequest, AuthRegisterRequest, AuthResponse, LogoutResponse, ProfileResponse, ProfileUpdateRequest
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 def _profile(user: User) -> ProfileResponse:
     return ProfileResponse(id=user.id, email=user.email, display_name=user.display_name)
+
+
+@router.post("/register", response_model=AuthResponse)
+async def register(body: AuthRegisterRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
+    email = body.email.strip().lower()
+    if not allowed_email(email):
+        raise HTTPException(status_code=422, detail="enterprise_email_required")
+    existing = await db.scalar(select(User).where(User.email == email))
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="user_already_exists")
+    display_name = (body.display_name or email.split("@")[0]).strip()
+    user = User(
+        email=email,
+        password_hash=hash_password(body.password),
+        display_name=display_name,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    token = await issue_access_token(db, user)
+    return AuthResponse(access_token=token, profile=_profile(user))
 
 
 @router.post("/login", response_model=AuthResponse)

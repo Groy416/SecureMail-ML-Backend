@@ -45,6 +45,25 @@ def test_password_hash_is_verified_without_storing_plaintext():
     assert not verify_password("wrong", hashed)
 
 
+def test_register_creates_new_user_and_issues_token(client: TestClient):
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "0day@example.com", "password": "0day@SIH26", "display_name": "0day"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "access_token" in data
+    assert data["profile"]["email"] == "0day@example.com"
+    assert data["profile"]["display_name"] == "0day"
+
+    # Duplicate registration rejects with 409
+    dup = client.post(
+        "/api/v1/auth/register",
+        json={"email": "0day@example.com", "password": "0day@SIH26"},
+    )
+    assert dup.status_code == 409
+
+
 def test_login_rejects_non_enterprise_email(client: TestClient):
     response = client.post("/api/v1/auth/login", json={"email": "alice@outside.test", "password": "secret"})
     assert response.status_code == 422
