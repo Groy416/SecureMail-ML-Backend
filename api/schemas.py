@@ -42,6 +42,31 @@ class SafeSessionContext(BaseModel):
     )
 
 
+class AuthLoginRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    password: str = Field(..., min_length=1, max_length=256)
+
+
+class ProfileUpdateRequest(BaseModel):
+    display_name: str = Field(..., min_length=1, max_length=120)
+
+
+class ProfileResponse(BaseModel):
+    id: int
+    email: str
+    display_name: str
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    profile: ProfileResponse
+
+
+class LogoutResponse(BaseModel):
+    logged_out: bool
+
+
 class ErrorDetail(BaseModel):
     """Structured error information."""
 

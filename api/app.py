@@ -17,6 +17,7 @@ from api.dependencies import load_ml_runtime, reset_runtime
 from api.routes import router
 from api.data_routes import data_router
 from api.capture_routes import capture_router
+from api.auth_routes import router as auth_router
 
 logger = logging.getLogger("securemailscope.api")
 
@@ -74,6 +75,7 @@ def create_app() -> FastAPI:
     application.include_router(router)
     application.include_router(data_router)
     application.include_router(capture_router)
+    application.include_router(auth_router)
 
     return application
 

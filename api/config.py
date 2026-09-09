@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "*"
     SECUREMAIL_API_KEY: Optional[str] = None
 
+    # User authentication configuration
+    AUTH_ALLOWED_EMAIL_DOMAINS: str = ""
+    AUTH_JWT_SECRET: Optional[str] = None
+    AUTH_ACCESS_TOKEN_MINUTES: int = 30
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
