@@ -24,10 +24,10 @@ ENV PATH="/app/.venv/bin:$PATH" \
     API_HOST=0.0.0.0 \
     API_PORT=8000 \
     SECUREMAIL_BUNDLE_PATH=/app/models/Model_XG_RF \
-    DATABASE_URL=sqlite+aiosqlite:////data/securemail.db
+    DATABASE_URL=postgresql+asyncpg://securemail:securemail@db:5432/securemail
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y libgomp1 \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y libgomp1 tshark \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -36,8 +36,9 @@ COPY api ./api
 COPY ml ./ml
 COPY models/Model_XG_RF ./models/Model_XG_RF
 
-RUN mkdir -p /data \
-    && chown 10001:10001 /data
+RUN mkdir -p /tmp/securemail-captures \
+    && chown 10001:10001 /tmp/securemail-captures
+
 USER 10001:10001
 
 EXPOSE 8000

@@ -243,6 +243,36 @@ class TestAnalysisHappyPath:
         r2 = client.post("/api/v1/analyses", json=payload)
         assert r1.json()["request_id"] != r2.json()["request_id"]
 
+    def test_posted_analysis_appears_in_stats_and_list(self, client: TestClient) -> None:
+        payload = _analysis_request(_deprecated_tls_payload())
+        posted = client.post("/api/v1/analyses", json=payload)
+        assert posted.status_code == 200
+        request_id = posted.json()["request_id"]
+        result = posted.json()["result"]
+
+        stats = client.get("/api/v1/analyses/stats")
+        assert stats.status_code == 200
+        body = stats.json()
+        assert body["total_analyses"] >= 1
+        assert body["avg_risk_score"] is None or 0.0 <= body["avg_risk_score"] <= 1.0
+        assert body["flagged_sessions"] >= 1
+        assert body["evidence_archived"] >= 1
+        verdicts = {row["verdict"] for row in body["verdict_distribution"]}
+        assert result["risk"]["class"] in verdicts
+        postures = {row["posture"] for row in body["cryptographic_posture_distribution"]}
+        assert "deprecated" in postures
+
+        listing = client.get("/api/v1/analyses?limit=50")
+        assert listing.status_code == 200
+        records = listing.json()["records"]
+        match = next(row for row in records if row["request_id"] == request_id)
+        assert match["final_verdict"] == result["risk"]["class"]
+        assert match["risk_score"] == result["risk"]["score"]
+        assert match["capture_id"] == "live-api-test"
+        assert match["protocol"] == "SMTP"
+        assert match["posture"] == "deprecated"
+        assert match["rule_score"] is None
+
 
 # ---------------------------------------------------------------------------
 # Analysis endpoint — payload rejection
@@ -356,6 +386,25 @@ class TestAnalysisAuthentication:
                 assert response.status_code == 401
                 detail = response.json()["detail"]
                 assert detail["error"]["code"] == "authentication_required"
+        finally:
+            os.environ.pop("SECUREMAIL_API_KEY", None)
+            reset_runtime()
+
+    def test_data_reads_require_the_raw_api_key(self) -> None:
+        reset_runtime()
+        os.environ["SECUREMAIL_API_KEY"] = "test-secret-key"
+        try:
+            app = create_app()
+            with TestClient(app) as c:
+                assert c.get("/api/v1/health").status_code == 200
+                assert c.get("/api/v1/analyses/stats").status_code == 401
+                assert c.get("/api/v1/bundle").status_code == 401
+                assert c.get("/api/v1/rules").status_code == 401
+                assert c.post("/api/v1/validate", json={"record": {}}).status_code == 401
+                assert c.get(
+                    "/api/v1/analyses/stats",
+                    headers={"Authorization": "test-secret-key"},
+                ).status_code == 200
         finally:
             os.environ.pop("SECUREMAIL_API_KEY", None)
             reset_runtime()
@@ -548,6 +597,21 @@ class TestDataRoutes:
         for record in data["records"]:
             assert record["is_synthetic"] is True
 
+    def test_list_and_stats_date_filters(self, client: TestClient) -> None:
+        client.post("/api/v1/analyses/synthetic", json={
+            "session_id": "date-filter-sess",
+            "risk_score": 0.2,
+            "final_verdict": "informational",
+        })
+        future = client.get("/api/v1/analyses?from=2099-01-01T00:00:00Z")
+        assert future.status_code == 200
+        assert future.json()["total"] == 0
+        future_stats = client.get("/api/v1/analyses/stats?from=2099-01-01T00:00:00Z")
+        assert future_stats.status_code == 200
+        assert future_stats.json()["total_analyses"] == 0
+        past = client.get("/api/v1/analyses?from=2000-01-01T00:00:00Z")
+        assert past.json()["total"] >= 1
+
     def test_list_analyses_pagination(self, client: TestClient) -> None:
         """Pagination skip/limit are reflected in the response."""
         response = client.get("/api/v1/analyses?skip=0&limit=1")
@@ -598,6 +662,9 @@ class TestDataRoutes:
         assert "total_real" in data
         assert "avg_risk_score" in data
         assert "verdict_distribution" in data
+        assert "cryptographic_posture_distribution" in data
+        assert "flagged_sessions" in data
+        assert "evidence_archived" in data
         assert "total_validations" in data
         assert "validation_pass_rate" in data
 

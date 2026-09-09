@@ -136,14 +136,18 @@ def extract_rule_findings(record: SessionFeatureRecord) -> list[RuleFinding]:
                 ("starttls_advertised", "starttls_used"),
             )
         )
-    if features.starttls_used and not features.handshake_success:
+    if (
+        features.starttls_used
+        and not features.handshake_success
+        and features.handshake_failures > 0
+    ):
         findings.append(
             _finding(
                 record,
                 "STLS-002",
                 RiskLabel.HIGH,
                 "STARTTLS handshake failure",
-                ("starttls_used", "handshake_success"),
+                ("starttls_used", "handshake_success", "handshake_failures"),
             )
         )
     if features.handshake_failures >= 3:

@@ -46,6 +46,8 @@ _FIELDS = (
     "tls.handshake.ciphersuite",
     "tls.handshake.sig_hash_alg",
     "tls.handshake.certificate",
+    "tls.record.content_type",
+    "tls.alert_message.level",
 )
 _TLS_VERSION = {"0x0304": "TLS1.3", "0x0303": "TLS1.2", "0x0302": "TLS1.1", "0x0301": "TLS1.0"}
 _CIPHER_SUITE = {
@@ -60,6 +62,17 @@ _CIPHER_SUITE = {
 }
 _SIGNATURE_ALGORITHM = {"0x0804": "RSA-PSS", "0x0401": "SHA256-RSA", "0x0501": "SHA384-RSA"}
 EXTRACTOR_VERSION = "pcap-extractor.v1"
+TSHARK_TIMEOUT_SECONDS = 120
+MAX_TSHARK_OUTPUT_BYTES = 64 * 1024 * 1024
+_MAIL_PORTS: dict[str, tuple[Protocol, int]] = {
+    "25": (Protocol.SMTP, 25),
+    "465": (Protocol.SMTP, 465),
+    "587": (Protocol.SMTP, 587),
+    "143": (Protocol.IMAP, 143),
+    "993": (Protocol.IMAP, 993),
+    "110": (Protocol.POP3, 110),
+    "995": (Protocol.POP3, 995),
+}
 
 
 class PcapExtractionUnavailable(RuntimeError):
@@ -68,9 +81,20 @@ class PcapExtractionUnavailable(RuntimeError):
 
 def _command_output(command: list[str]) -> str:
     try:
-        return subprocess.run(command, check=True, text=True, capture_output=True).stdout
+        result = subprocess.run(
+            command,
+            check=True,
+            text=True,
+            capture_output=True,
+            timeout=TSHARK_TIMEOUT_SECONDS,
+        )
+        if len(result.stdout.encode("utf-8")) > MAX_TSHARK_OUTPUT_BYTES:
+            raise PcapExtractionUnavailable("tshark output exceeded the worker limit")
+        return result.stdout
     except FileNotFoundError as exc:
         raise PcapExtractionUnavailable(f"parser command not found: {command[0]}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise PcapExtractionUnavailable("tshark extraction timed out") from exc
     except subprocess.CalledProcessError as exc:
         raise PcapExtractionUnavailable(exc.stderr.strip() or "tshark extraction failed") from exc
 
@@ -144,7 +168,10 @@ def _first(values: Iterable[str]) -> str | None:
 
 
 def _has_handshake_type(rows: Iterable[dict[str, str]], handshake_type: str) -> bool:
-    return any(handshake_type in row["tls.handshake.type"].split(",") for row in rows)
+    return any(
+        handshake_type in row.get("tls.handshake.type", "").split(",")
+        for row in rows
+    )
 
 
 def client_handshake_succeeded(
@@ -153,10 +180,61 @@ def client_handshake_succeeded(
 ) -> bool:
     materialized = list(rows)
     return _has_handshake_type(materialized, "2") and any(
-        row["tcp.srcport"] == client_source_port
-        and "20" in row["tls.handshake.type"].split(",")
+        row.get("tcp.srcport") == client_source_port
+        and "20" in row.get("tls.handshake.type", "").split(",")
         for row in materialized
     )
+
+
+def classify_handshake(
+    rows: Iterable[dict[str, str]],
+    client_source_port: str,
+) -> tuple[bool, int]:
+    """Classify TLS without treating encrypted Finished messages as failures."""
+    materialized = list(rows)
+    if client_handshake_succeeded(materialized, client_source_port):
+        return True, 0
+
+    has_server_hello = _has_handshake_type(materialized, "2")
+    fatal_alerts = [
+        row for row in materialized if row.get("tls.alert_message.level") == "2"
+    ]
+    if not has_server_hello:
+        return False, len(fatal_alerts)
+
+    fatal_alert_frames = [
+        int(row["frame.number"]) for row in fatal_alerts if row.get("frame.number")
+    ]
+    first_fatal_alert = min(fatal_alert_frames) if fatal_alert_frames else None
+    application_data_frames = [
+        int(row["frame.number"])
+        for row in materialized
+        if "23" in row.get("tls.record.content_type", "").split(",")
+        and row.get("frame.number")
+    ]
+    if application_data_frames and (
+        not fatal_alerts
+        or (first_fatal_alert is not None and min(application_data_frames) < first_fatal_alert)
+    ):
+        return True, 0
+
+    client_change_cipher = any(
+        row.get("tcp.srcport") == client_source_port
+        and "20" in row.get("tls.record.content_type", "").split(",")
+        for row in materialized
+    )
+    server_change_cipher = any(
+        row.get("tcp.srcport") != client_source_port
+        and "20" in row.get("tls.record.content_type", "").split(",")
+        for row in materialized
+    )
+    if first_fatal_alert is None and client_change_cipher and server_change_cipher:
+        return True, 0
+    if fatal_alerts:
+        return False, len(fatal_alerts)
+    # ponytail: packet-level completion heuristic; key-log-backed Finished
+    # verification can replace this when exact TLS state is required.
+    return False, 0
 
 
 def _cipher_family(cipher_suite: str) -> str:
@@ -181,7 +259,9 @@ def _key_exchange(tls_version: str, cipher_suite: str) -> str:
 
 def _openssl_certificate_metadata(der_hex: str) -> dict[str, object]:
     try:
-        der = bytes.fromhex(der_hex)
+        # tshark emits repeated certificate fields as comma-separated DER values;
+        # certificate posture is derived from the leaf certificate.
+        der = bytes.fromhex(der_hex.split(",", 1)[0])
     except ValueError as exc:
         raise PcapExtractionUnavailable("tshark returned malformed certificate DER") from exc
     with tempfile.TemporaryDirectory() as directory:
@@ -243,6 +323,73 @@ def _trusted_certificate_fields(
     }
 
 
+def detect_mail_ports(pcap_path: str | Path) -> list[tuple[Protocol, int]]:
+    """Return supported mail destination ports observed by TShark."""
+    path = Path(pcap_path)
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    command = _tshark_command(path, None)
+    command.extend(["-T", "fields", "-e", "tcp.dstport"])
+    return sorted(
+        {_MAIL_PORTS[port] for port in _command_output(command).splitlines() if port in _MAIL_PORTS},
+        key=lambda item: (item[0].value, item[1]),
+    )
+
+
+def _authorized_manifest(protocol: Protocol) -> ScenarioManifest:
+    """Neutral extraction metadata; authorized-capture labels are forced in extract_sessions."""
+    return ScenarioManifest.model_validate(
+        {
+            "schema_version": "scenario.v1",
+            "scenario_id": "authorized_capture",
+            "family": "normal_baseline",
+            "description": "Authorized passive capture",
+            "protocol": protocol.value,
+            "risk_label": "informational",
+            "anomaly_label": 0,
+            "tls": {
+                "version": "TLS1.3",
+                "cipher_suite": "TLS_AES_256_GCM_SHA384",
+                "key_exchange": "ECDHE",
+                "forward_secrecy": True,
+            },
+            "certificate": {"state": "unknown"},
+            "client_behavior": {
+                "starttls_advertised": True,
+                "starttls_used": True,
+                "handshake_attempts": 1,
+            },
+            "variation": {
+                "duration_seconds": [0.0, 1.0],
+                "packet_count": [0, 1],
+                "byte_count": [0, 1],
+            },
+            "repetitions": 1,
+            "seed": 0,
+        }
+    )
+
+
+def extract_authorized_capture(
+    pcap_path: str | Path,
+    *,
+    environment_id: str,
+) -> list[SessionFeatureRecord]:
+    """Extract supported mail sessions without client-controlled labels or key logs."""
+    records: list[SessionFeatureRecord] = []
+    for protocol, destination_port in detect_mail_ports(pcap_path):
+        records.extend(
+            extract_sessions(
+                pcap_path,
+                scenario=_authorized_manifest(protocol),
+                environment_id=environment_id,
+                destination_port=destination_port,
+                source_type=SourceType.AUTHORIZED_CAPTURE,
+            )
+        )
+    return records
+
+
 def extract_sessions(
     pcap_path: str | Path,
     *,
@@ -288,7 +435,10 @@ def extract_sessions(
             for row in rows
             if row["tcp.payload"] and all(c in "0123456789abcdefABCDEF" for c in row["tcp.payload"])
         )
-        handshake_success = client_handshake_succeeded(rows, first["tcp.srcport"])
+        handshake_success, handshake_failures = classify_handshake(
+            rows,
+            first["tcp.srcport"],
+        )
         tls_version_code = _first(
             row["tls.handshake.extensions.supported_version"]
             or row["tls.handshake.version"]
@@ -344,6 +494,8 @@ def extract_sessions(
                                 "tls.handshake.extensions.supported_version",
                                 "tls.handshake.ciphersuite",
                                 "tls.handshake.certificate",
+                                "tls.record.content_type",
+                                "tls.alert_message.level",
                             ],
                         )
                     ],
@@ -355,7 +507,7 @@ def extract_sessions(
                     starttls_advertised=b"STARTTLS" in plaintext,
                     starttls_used=b"STARTTLS" in plaintext and _has_handshake_type(rows, "1"),
                     handshake_success=handshake_success,
-                    handshake_failures=0 if handshake_success else int(b"STARTTLS" in plaintext),
+                    handshake_failures=handshake_failures,
                     renegotiation_count=0,
                     session_duration_seconds=max(0.0, end - start),
                     packet_count=len(rows),

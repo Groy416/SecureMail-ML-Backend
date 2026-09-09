@@ -1,4 +1,22 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-securemail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-securemail}
+    ports:
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - securemail-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   api:
     image: ${GHCR_IMAGE:-ghcr.io/groy416/securemail-ml-backend}:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -8,17 +26,47 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
       SECUREMAIL_BUNDLE_PATH: /app/models/Model_XG_RF
-      DATABASE_URL: sqlite+aiosqlite:////data/securemail.db
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-securemail}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-securemail}
       SECUREMAIL_CORS_ORIGINS: ${SECUREMAIL_CORS_ORIGINS:-*}
       SECUREMAIL_API_KEY: ${SECUREMAIL_API_KEY:?Set SECUREMAIL_API_KEY in .env}
+      SECUREMAIL_CAPTURE_DIR: /tmp/securemail-captures
+      SECUREMAIL_CAPTURE_TIMEOUT_SECONDS: ${SECUREMAIL_CAPTURE_TIMEOUT_SECONDS:-120}
     ports:
       - "${API_BIND_ADDRESS:-127.0.0.1}:${API_HOST_PORT:-8000}:8000"
     volumes:
-      - securemail-data:/data
+      - securemail-captures:/tmp/securemail-captures
+
+  worker:
+    image: ${GHCR_IMAGE:-ghcr.io/groy416/securemail-ml-backend}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    environment:
+      SECUREMAIL_BUNDLE_PATH: /app/models/Model_XG_RF
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-securemail}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-securemail}
+      SECUREMAIL_CAPTURE_DIR: /tmp/securemail-captures
+      SECUREMAIL_CAPTURE_POLL_SECONDS: ${SECUREMAIL_CAPTURE_POLL_SECONDS:-1}
+      SECUREMAIL_CAPTURE_TIMEOUT_SECONDS: ${SECUREMAIL_CAPTURE_TIMEOUT_SECONDS:-120}
+    volumes:
+      - securemail-captures:/tmp/securemail-captures
+    command: ["python", "-m", "api.worker"]
 
 volumes:
-  securemail-data:
+  securemail-pg:
+  securemail-captures:

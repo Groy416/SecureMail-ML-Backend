@@ -27,7 +27,7 @@ fi
 
 docker compose config >/dev/null
 docker compose pull api
-docker compose up -d --no-build --remove-orphans api
+docker compose up -d --no-build --remove-orphans
 
 container_id="$(docker compose ps -q api)"
 if [[ -z "$container_id" ]]; then

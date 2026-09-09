@@ -5,12 +5,15 @@ request ID generation, authentication, and database sessions.
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import uuid
 from dataclasses import dataclass
 from typing import AsyncGenerator
 
+from fastapi import Header, HTTPException
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from ml.calibration import CalibrationState
@@ -52,7 +55,11 @@ def load_ml_runtime() -> MLRuntime:
     logger.info(
         "Model bundle loaded: version=%s, models=%s",
         bundle.version,
-        list(bundle.model_names),
+        [
+            "xgboost",
+            "random_forest",
+            *( ["isolation_forest"] if bundle.isolation_forest is not None else []),
+        ],
     )
     return _runtime
 
@@ -78,13 +85,17 @@ def generate_request_id() -> str:
 
 
 def authenticate_request(api_key: str | None = None) -> bool:
-    """Placeholder authentication dependency."""
+    """Validate the configured raw Authorization key without logging it."""
     required_key = os.environ.get("SECUREMAIL_API_KEY")
     if required_key is None:
         return True
-    if api_key is None or api_key != required_key:
-        return False
-    return True
+    return api_key is not None and hmac.compare_digest(api_key, required_key)
+
+
+def require_api_key(authorization: str | None = Header(default=None)) -> None:
+    """Protect persisted analysis data while leaving the readiness check public."""
+    if not authenticate_request(authorization):
+        raise HTTPException(status_code=401, detail="authentication_required")
 
 
 # --- Database Dependencies ---
@@ -93,10 +104,45 @@ engine = create_async_engine(settings.DATABASE_URL, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
+def _ensure_analysis_columns(sync_conn) -> None:
+    """Add columns on databases that predate the current metadata."""
+    inspector = inspect(sync_conn)
+    if inspector.has_table("analysis_records"):
+        existing = {column["name"] for column in inspector.get_columns("analysis_records")}
+        additions = {
+            "capture_id": "VARCHAR(128)",
+            "protocol": "VARCHAR(16)",
+            "posture": "VARCHAR(32)",
+            "evidence_ref_count": "INTEGER DEFAULT 0",
+        }
+        for name, spec in additions.items():
+            if name not in existing:
+                sync_conn.execute(text(f"ALTER TABLE analysis_records ADD COLUMN {name} {spec}"))
+        if sync_conn.dialect.name == "postgresql":
+            sync_conn.execute(text("ALTER TABLE analysis_records ALTER COLUMN rule_score DROP NOT NULL"))
+
+    if not inspector.has_table("capture_jobs"):
+        return
+    existing = {column["name"] for column in inspector.get_columns("capture_jobs")}
+    additions = {
+        "input_path": "VARCHAR(512)",
+        "attempts": "INTEGER DEFAULT 0",
+        "max_attempts": "INTEGER DEFAULT 2",
+        "processed_sessions": "INTEGER DEFAULT 0",
+        "progress": "FLOAT",
+        "started_at": "TIMESTAMP",
+        "finished_at": "TIMESTAMP",
+    }
+    for name, spec in additions.items():
+        if name not in existing:
+            sync_conn.execute(text(f"ALTER TABLE capture_jobs ADD COLUMN {name} {spec}"))
+
+
 async def init_db() -> None:
     """Initialize database tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_ensure_analysis_columns)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

@@ -12,12 +12,80 @@ post {
 
 headers {
   content-type: application/json
+  Authorization: 246d3456959ff4ffa90c6a257d5cd65468198da505ee8a7dde671d0862429131
 }
 
 body:json {
   {
-    "record": {}
-  }
+    "schema_version": "analysis-request.v1",
+    "record" : {
+      "schema_version": "session-features.v1",
+      "provenance": {
+        "capture_id": "pcap-82398e69c96f0dfd",
+        "flow_id": "pcap-82398e69c96f0dfd:stream:0",
+        "session_id": "pcap-82398e69c96f0dfd:stream:0",
+        "source_type": "authorized_capture",
+        "scenario_id": "normal_tls13_valid",
+        "environment_id": "authorized_capture",
+        "parameter_hash": null,
+        "generator_seed": null,
+        "evidence_refs": [
+          {
+            "source": "pcap",
+            "stream_id": 0,
+            "packet_start": 1,
+            "packet_end": 7,
+            "fields": [
+              "tcp.stream",
+              "tcp.payload",
+              "tls.handshake.type",
+              "tls.handshake.extensions.supported_version",
+              "tls.handshake.ciphersuite",
+              "tls.handshake.certificate"
+            ]
+          }
+        ]
+      },
+      "features": {
+        "protocol": "SMTP",
+        "src_port": 65339,
+        "dst_port": 25,
+        "starttls_advertised": false,
+        "starttls_used": false,
+        "handshake_success": false,
+        "handshake_failures": 0,
+        "renegotiation_count": 0,
+        "session_duration_seconds": 4.530164003372192,
+        "packet_count": 7,
+        "byte_count": 512,
+        "retransmission_count": 0,
+        "out_of_order_count": 0,
+        "tls_version": null,
+        "cipher_suite": null,
+        "cipher_family": null,
+        "key_exchange": null,
+        "signature_algorithm": null,
+        "forward_secrecy": null,
+        "cert_present": false,
+        "cert_valid": null,
+        "cert_expired": null,
+        "cert_expires_in_days": null,
+        "cert_chain_valid": null,
+        "hostname_mismatch": null,
+        "cert_key_algorithm": null,
+        "cert_key_length_bits": null,
+        "cert_signature_algorithm": null
+      },
+      "labels": {
+        "risk_label": "informational",
+        "anomaly_label": 0,
+        "expected_finding_ids": []
+      }
+    }
+  }        
+  
+  
+  
 }
 
 tests {

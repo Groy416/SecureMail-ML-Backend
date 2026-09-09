@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import load_ml_runtime, reset_runtime
 from api.routes import router
 from api.data_routes import data_router
+from api.capture_routes import capture_router
 
 logger = logging.getLogger("securemailscope.api")
 
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     # --- Register routes ---
     application.include_router(router)
     application.include_router(data_router)
+    application.include_router(capture_router)
 
     return application
 

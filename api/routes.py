@@ -10,17 +10,21 @@ import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ml.pipeline import predict_session
 from ml.product import PayloadRejected, inference_record
-from ml.schema import RiskLabel
 
+from api.database import AnalysisRecord, CaptureSession, ValidationRecord
 from api.dependencies import (
     authenticate_request,
     generate_request_id,
     get_runtime,
     get_db,
+    require_api_key,
 )
 from api.schemas import (
     AnalysisRequest,
@@ -34,6 +38,7 @@ from api.schemas import (
     ValidationRequest,
     ValidationResponse,
     build_safe_session_context,
+    cryptographic_posture,
 )
 
 logger = logging.getLogger("securemailscope.api")
@@ -77,6 +82,7 @@ def health() -> HealthResponse:
 @router.get(
     "/bundle",
     response_model=BundleInfoResponse,
+    dependencies=[Depends(require_api_key)],
     summary="Active model bundle metadata",
 )
 def bundle_info() -> BundleInfoResponse:
@@ -182,6 +188,7 @@ KNOWN_RULES: list[RuleInfoItem] = [
 @router.get(
     "/rules",
     response_model=RulesResponse,
+    dependencies=[Depends(require_api_key)],
     summary="List known deterministic rules",
 )
 def list_rules() -> RulesResponse:
@@ -351,25 +358,58 @@ async def analyze_session(
             status = "degraded"
             break
 
-    # Save analysis record to database asynchronously
+    protocol = (
+        session_context.protocol.value
+        if hasattr(session_context.protocol, "value")
+        else str(session_context.protocol)
+    )
+    findings = list(result.rule_findings)
     try:
         db_record = AnalysisRecord(
             request_id=request_id,
             session_id=session_context.session_id,
-            client_id=session_context.client_id,
+            client_id=session_context.capture_id,
+            capture_id=session_context.capture_id,
+            protocol=protocol,
+            posture=cryptographic_posture(session_context.observations),
+            evidence_ref_count=len(result.evidence_refs),
             record_count=1,
-            risk_score=result.risk_score,
-            final_verdict=result.final_verdict.value if hasattr(result.final_verdict, "value") else str(result.final_verdict),
-            rule_score=result.rule_score,
-            rule_triggers_count=len(result.trigger_details),
-            trigger_details=[t.model_dump(mode="json") for t in result.trigger_details],
-            ml_scores=result.ml_scores.model_dump(mode="json") if hasattr(result.ml_scores, "model_dump") else result.ml_scores,
-            explanations=result.explanations.model_dump(mode="json") if hasattr(result.explanations, "model_dump") else result.explanations,
-            model_bundle=result.model_bundle.model_dump(mode="json") if hasattr(result.model_bundle, "model_dump") else result.model_bundle,
+            risk_score=result.risk.score,
+            final_verdict=result.risk.risk_class.value,
+            rule_score=None,
+            rule_triggers_count=len(findings),
+            trigger_details=jsonable_encoder(findings),
+            ml_scores=jsonable_encoder(result.model_outputs),
+            explanations=jsonable_encoder(result.explanations),
+            model_bundle={"version": result.model_bundle_version},
         )
         db.add(db_record)
+        await db.flush()
+        capture_session = await db.scalar(
+            select(CaptureSession).where(
+                CaptureSession.capture_id == session_context.capture_id,
+                CaptureSession.session_id == session_context.session_id,
+            )
+        )
+        if capture_session is not None:
+            capture_session.analysis_request_id = request_id
+        await db.commit()
     except Exception:
-        logger.exception("Failed to queue AnalysisRecord to DB for request %s", request_id)
+        logger.exception("Failed to persist AnalysisRecord for request %s", request_id)
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                request_id=request_id,
+                status="failed",
+                error=ErrorDetail(
+                    code="persistence_error",
+                    message=(
+                        "Analysis succeeded but could not be stored. "
+                        "Retry with the same payload or contact support with the request ID."
+                    ),
+                ),
+            ).model_dump(mode="json"),
+        )
 
     return AnalysisResponse(
         request_id=request_id,
@@ -383,6 +423,7 @@ async def analyze_session(
 @router.post(
     "/validate",
     response_model=ValidationResponse,
+    dependencies=[Depends(require_api_key)],
     summary="Validate a session record payload",
     description=(
         "Pre-flight payload and schema validation without running ML inference. "
@@ -454,7 +495,20 @@ async def validate_session_payload(
             issues=issues_dict,
         )
         db.add(db_record)
+        await db.flush()
+        await db.commit()
     except Exception:
-        logger.exception("Failed to queue ValidationRecord to DB for request %s", request_id)
+        logger.exception("Failed to persist ValidationRecord for request %s", request_id)
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                request_id=request_id,
+                status="failed",
+                error=ErrorDetail(
+                    code="persistence_error",
+                    message="Validation completed but could not be stored.",
+                ),
+            ).model_dump(mode="json"),
+        )
 
     return res

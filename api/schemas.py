@@ -127,6 +127,31 @@ class ValidationResponse(BaseModel):
 
 
 
+def cryptographic_posture(observations: dict[str, Any]) -> str:
+    """Bucket TLS/certificate observations for dashboard aggregates."""
+    handshake = observations.get("handshake_success")
+    tls = observations.get("tls_version")
+    cipher_family = observations.get("cipher_family")
+    forward_secrecy = observations.get("forward_secrecy")
+    handshake_failures = observations.get("handshake_failures")
+    expired = observations.get("cert_expired")
+    mismatch = observations.get("hostname_mismatch")
+    chain_valid = observations.get("cert_chain_valid")
+    key_len = observations.get("cert_key_length_bits")
+    if handshake is False and isinstance(handshake_failures, (int, float)) and handshake_failures > 0:
+        return "handshake_failed"
+    if tls in {"TLS1.0", "TLS1.1"} or cipher_family in {"3DES", "RC4"}:
+        return "deprecated"
+    weak_key = isinstance(key_len, (int, float)) and key_len < 2048
+    if expired or mismatch or chain_valid is False or forward_secrecy is False or weak_key:
+        return "weak"
+    if tls == "TLS1.3":
+        return "modern"
+    if tls == "TLS1.2":
+        return "adequate"
+    return "unknown"
+
+
 def build_safe_session_context(record: Any) -> SafeSessionContext:
     """Extract a SafeSessionContext from a validated SessionFeatureRecord."""
     features = record.features
@@ -151,6 +176,59 @@ def build_safe_session_context(record: Any) -> SafeSessionContext:
     )
 
 
+class CaptureSessionPreview(BaseModel):
+    session_id: str
+    protocol: Protocol
+    src_port: int
+    dst_port: int
+    tls_version: str | None
+    cipher_suite: str | None
+    starttls_advertised: bool
+    starttls_used: bool
+    handshake_success: bool
+    cert_present: bool | None
+    cert_expired: bool | None
+    hostname_mismatch: bool | None
+    evidence_refs: list[dict[str, Any]]
+    checked_views: list[Literal["protocol_session", "tls", "certificate"]]
+
+
+CaptureJobStatus = Literal["queued", "running", "complete", "empty", "failed"]
+
+
+class CaptureResponse(BaseModel):
+    """Durable PCAP extraction job status."""
+
+    schema_version: Literal["capture-job.v1"] = "capture-job.v1"
+    job_id: str
+    capture_id: str
+    status: CaptureJobStatus
+    pcap_sha256: str
+    filename: str
+    attempts: int = 0
+    session_count: int = 0
+    processed_sessions: int = 0
+    progress: float | None = None
+    error_code: str | None = None
+    diagnostics: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class CaptureJobListResponse(BaseModel):
+    jobs: list[CaptureResponse]
+    total: int
+    skip: int
+    limit: int
+
+
+class CaptureSessionListResponse(BaseModel):
+    capture_id: str
+    skip: int = 0
+    limit: int = 200
+    total: int
+    sessions: list[CaptureSessionPreview]
+    records: list[dict[str, Any]]
+
+
 # ---------------------------------------------------------------------------
 #  Database CRUD & Synthetic Data Schemas
 # ---------------------------------------------------------------------------
@@ -163,11 +241,15 @@ class AnalysisRecordResponse(BaseModel):
     request_id: str
     session_id: str
     client_id: str | None
+    capture_id: str | None = None
+    protocol: str | None = None
+    posture: str | None = None
     timestamp: str
     record_count: int
+    evidence_ref_count: int = 0
     risk_score: float
     final_verdict: str
-    rule_score: float
+    rule_score: float | None = None
     rule_triggers_count: int
     trigger_details: list[Any]
     ml_scores: dict[str, Any]
@@ -180,6 +262,14 @@ class AnalysisRecordResponse(BaseModel):
 class AnalysisListResponse(BaseModel):
     """Paginated list of analysis records."""
 
+    total: int
+    skip: int
+    limit: int
+    records: list[AnalysisRecordResponse]
+
+
+class CaptureAnalysisListResponse(BaseModel):
+    job_id: str
     total: int
     skip: int
     limit: int
@@ -204,7 +294,12 @@ class SyntheticAnalysisRequest(BaseModel):
         ...,
         description="Verdict label. One of: benign, suspicious, malicious, informational.",
     )
-    rule_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Synthetic rule/deterministic score.")
+    rule_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Optional rule score. Null when no separate rule-score contract exists.",
+    )
     rule_triggers_count: int = Field(default=0, ge=0)
     trigger_details: list[Any] = Field(default_factory=list, description="Optional rule trigger detail objects.")
     ml_scores: dict[str, Any] = Field(
@@ -259,16 +354,26 @@ class VerdictCount(BaseModel):
     count: int
 
 
+class PostureCount(BaseModel):
+    """A cryptographic posture bucket and its count."""
+
+    posture: str
+    count: int
+
+
 class StatsResponse(BaseModel):
-    """Aggregate statistics across all analysis records in the DB."""
+    """Aggregate statistics across stored analysis records."""
 
     total_analyses: int
     total_synthetic: int
     total_real: int
+    flagged_sessions: int
+    evidence_archived: int
     avg_risk_score: float | None
     verdict_distribution: list[VerdictCount]
+    cryptographic_posture_distribution: list[PostureCount]
     total_validations: int
-    validation_pass_rate: float | None  # 0.0–1.0
+    validation_pass_rate: float | None
 
 
 class DeleteResponse(BaseModel):

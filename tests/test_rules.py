@@ -67,6 +67,23 @@ def _record(**feature_overrides: object) -> SessionFeatureRecord:
     )
 
 
+def test_starttls_without_an_explicit_failure_is_not_a_handshake_failure() -> None:
+    findings = extract_rule_findings(
+        _record(
+            handshake_success=False,
+            handshake_failures=0,
+            tls_version=None,
+            cipher_suite=None,
+            cipher_family=None,
+            key_exchange=None,
+            signature_algorithm=None,
+            forward_secrecy=None,
+        )
+    )
+
+    assert "STLS-002" not in {finding.finding_id for finding in findings}
+
+
 def test_invalid_chain_with_repeated_failures_is_critical() -> None:
     findings = extract_rule_findings(
         _record(cert_valid=False, cert_chain_valid=False, handshake_failures=3)
