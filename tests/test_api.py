@@ -234,6 +234,15 @@ class TestAnalysisHappyPath:
         result = data["result"]
         finding_ids = [f["finding_id"] for f in result["rule_findings"]]
         assert "TLS-001" in finding_ids
+        tls_finding = next(
+            finding for finding in result["rule_findings"]
+            if finding["finding_id"] == "TLS-001"
+        )
+        assert tls_finding["citations"] == [
+            "RFC 8996",
+            "RFC 8314",
+            "NIST SP 800-52r2",
+        ]
         # Policy: rules cannot be downgraded
         assert result["risk"]["class"] == "critical"
 

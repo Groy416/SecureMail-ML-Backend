@@ -46,6 +46,7 @@ class RuleFinding(ContractModel):
     severity: RiskLabel
     title: str = Field(min_length=1)
     evidence_refs: list[str] = Field(min_length=1)
+    citations: list[str] = Field(default_factory=list)
 
 
 class SupervisedRiskOutput(ContractModel):

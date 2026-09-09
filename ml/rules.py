@@ -23,6 +23,33 @@ def _evidence(
     ]
 
 
+def _citations(record: SessionFeatureRecord, finding_id: str) -> list[str]:
+    citations = {
+        "TLS-001": ["RFC 8996", "RFC 8314", "NIST SP 800-52r2"],
+        "FS-001": ["RFC 8314", "NIST SP 800-52r2"],
+        "CERT-001": ["RFC 5280", "NIST SP 800-52r2"],
+        "CERT-002": ["NIST SP 800-52r2"],
+        "CERT-003": ["RFC 5280", "NIST SP 800-52r2"],
+        "CERT-004": ["RFC 9525", "RFC 6125", "NIST SP 800-52r2"],
+        "STLS-001": ["RFC 3207", "RFC 8314", "NIST SP 800-52r2"],
+        "STLS-002": ["RFC 3207", "RFC 8314", "NIST SP 800-52r2"],
+        "ANOM-003": ["RFC 8996", "RFC 8314", "NIST SP 800-52r2"],
+    }
+    if finding_id == "TLS-002":
+        return (
+            ["RFC 7465", "NIST SP 800-52r2"]
+            if record.features.cipher_family == "RC4"
+            else ["NIST SP 800-52r2"]
+        )
+    if finding_id == "ANOM-002" and record.features.cipher_family == "RC4":
+        return ["RFC 7465", "NIST SP 800-52r2"]
+    if finding_id == "CRIT-001":
+        return ["RFC 5280", "RFC 3207", "NIST SP 800-52r2"]
+    if finding_id == "ANOM-001":
+        return ["RFC 3207", "NIST SP 800-52r2"]
+    return citations.get(finding_id, [])
+
+
 def _finding(
     record: SessionFeatureRecord,
     finding_id: str,
@@ -35,6 +62,7 @@ def _finding(
         severity=severity,
         title=title,
         evidence_refs=_evidence(record, fields),
+        citations=_citations(record, finding_id),
     )
 
 

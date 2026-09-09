@@ -67,6 +67,40 @@ def _record(**feature_overrides: object) -> SessionFeatureRecord:
     )
 
 
+def test_findings_include_backend_owned_citations_in_relevance_order() -> None:
+    findings = extract_rule_findings(
+        _record(
+            tls_version="TLS1.0",
+            cipher_family="RC4",
+            cipher_suite="RC4-SHA",
+            starttls_used=False,
+        )
+    )
+    by_id = {finding.finding_id: finding for finding in findings}
+
+    assert by_id["TLS-001"].citations == [
+        "RFC 8996",
+        "RFC 8314",
+        "NIST SP 800-52r2",
+    ]
+    assert by_id["TLS-002"].citations == ["RFC 7465", "NIST SP 800-52r2"]
+    assert by_id["STLS-001"].citations == [
+        "RFC 3207",
+        "RFC 8314",
+        "NIST SP 800-52r2",
+    ]
+
+
+def test_hostname_citation_prefers_rfc_9525_for_new_work() -> None:
+    finding = next(
+        finding
+        for finding in extract_rule_findings(_record(hostname_mismatch=True))
+        if finding.finding_id == "CERT-004"
+    )
+
+    assert finding.citations == ["RFC 9525", "RFC 6125", "NIST SP 800-52r2"]
+
+
 def test_starttls_without_an_explicit_failure_is_not_a_handshake_failure() -> None:
     findings = extract_rule_findings(
         _record(

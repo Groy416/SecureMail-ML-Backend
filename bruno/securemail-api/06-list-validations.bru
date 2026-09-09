@@ -5,13 +5,14 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/validations?limit=1
+  url: {{baseUrl}}/api/v1/validations?content-type=application/json&Authorization=246d3456959ff4ffa90c6a257d5cd65468198da505ee8a7dde671d0862429131
   body: none
   auth: none
 }
 
-headers {
-  Authorization: {{apiKey}}
+params:query {
+  content-type: application/json
+  Authorization: 246d3456959ff4ffa90c6a257d5cd65468198da505ee8a7dde671d0862429131
 }
 
 tests {
