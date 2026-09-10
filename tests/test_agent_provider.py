@@ -35,6 +35,12 @@ def test_provider_posts_chat_completion_without_exposing_secret():
     assert captured == {"url": "https://example.test/v1/chat/completions", "timeout": 3, "auth": "Bearer secret"}
 
 
+def test_provider_accepts_fenced_json_response():
+    body = b'{"choices":[{"message":{"content":"```json\\n{\\"answer\\":\\"ok\\",\\"recommendations\\":[],\\"evidence\\":[]}\\n```"}}]}'
+    provider = OpenAICompatibleProvider("groq", "model", "secret", "https://example.test/v1", 3, 1024, lambda *_args, **_kwargs: FakeResponse(body))
+    assert provider.generate("system", "user").answer == "ok"
+
+
 def test_provider_rejects_oversized_response():
     provider = OpenAICompatibleProvider("openai", "model", "secret", "https://example.test/v1", 3, 10, lambda *_args, **_kwargs: FakeResponse(b"x" * 20))
     with pytest.raises(AgentProviderError, match="provider_response_too_large"):

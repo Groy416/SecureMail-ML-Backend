@@ -91,7 +91,12 @@ def build_agent_context(analysis: AnalysisResponse, section: AgentSection) -> di
 
 
 def allowed_evidence(analysis: AnalysisResponse) -> set[str]:
-    """Return finding IDs and safe field references the model may cite."""
-    evidence = {str(finding["finding_id"]) for finding in _findings(analysis)}
-    evidence.update({"risk.class", "risk.score", "action"})
+    """Return finding IDs and existing safe evidence references the model may cite."""
+    evidence: set[str] = {"risk.class", "risk.score", "action"}
+    for finding in _findings(analysis):
+        evidence.add(str(finding["finding_id"]))
+        for key in ("evidence_refs", "citations"):
+            values = finding.get(key, [])
+            if isinstance(values, list):
+                evidence.update(value for value in values if isinstance(value, str) and value)
     return evidence

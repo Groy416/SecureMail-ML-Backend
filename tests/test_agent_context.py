@@ -20,4 +20,4 @@ def test_risk_context_excludes_unknown_and_sensitive_fields():
 
 def test_evidence_allowlist_contains_only_analysis_findings():
     analysis = AnalysisResponse.model_validate(sample_analysis())
-    assert allowed_evidence(analysis) == {"TLS-001", "risk.class", "risk.score", "action"}
+    assert allowed_evidence(analysis) == {"TLS-001", "pcap:tls", "risk.class", "risk.score", "action"}

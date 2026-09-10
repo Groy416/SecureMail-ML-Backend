@@ -51,8 +51,11 @@ class OpenAICompatibleProvider:
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                "temperature": 0,
-                "response_format": {"type": "json_object"},
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "max_completion_tokens": 2048,
+                "stream": False,
+                **({"reasoning_effort": "default"} if self.provider == "groq" else {}),
             }
         ).encode("utf-8")
         request = Request(
@@ -61,6 +64,7 @@ class OpenAICompatibleProvider:
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": "securemail-agent/0.1",
             },
             method="POST",
         )
@@ -76,7 +80,13 @@ class OpenAICompatibleProvider:
         try:
             body = json.loads(raw)
             content = body["choices"][0]["message"]["content"]
-            advisory = json.loads(content) if isinstance(content, str) else content
+            if isinstance(content, str):
+                content = content.strip()
+                if content.startswith("```"):
+                    content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                advisory = json.loads(content)
+            else:
+                advisory = content
             return AgentAdvisory.model_validate(advisory)
         except (ValueError, KeyError, IndexError, TypeError, ValidationError):
             raise AgentProviderError("provider_invalid_response") from None
