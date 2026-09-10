@@ -146,6 +146,35 @@ a safe or zero-risk result.
 fixtures. It does not run inference. Do not use it to populate production
 dashboard data.
 
+## Authorized AI insights
+
+`POST /agent/insights` explains an existing `analysis-response.v1` result for an analyst. It uses the same raw API-key authentication and accepts only these sections: `overview`, `risk`, `tls`, `certificate`, and `findings`.
+
+```json
+{
+  "schema_version": "agent-insight-request.v1",
+  "analysis": { "...analysis-response.v1...": true },
+  "section": "risk",
+  "question": "Explain the main risk drivers and what should be checked next."
+}
+```
+
+Configure the optional provider server-side with `AGENT_PROVIDER=openai` or
+`groq`, `AGENT_MODEL`, and `AGENT_API_KEY`. `AGENT_BASE_URL` can override the
+provider's OpenAI-compatible API base URL. Requests have a 20-second default
+timeout and 256 KiB response limit; there are no retries.
+
+The backend rebuilds a section-specific allowlist from the supplied analysis.
+It does not forward raw records, packet contents, email data, credentials,
+private keys, authorization headers, or unknown fields. The AI response is
+advisory: deterministic findings and the existing verdict remain authoritative,
+and the endpoint cannot execute remediation.
+
+Provider misconfiguration, timeout, upstream errors, oversized/malformed
+responses, or invalid evidence return HTTP 200 with `status=degraded`,
+`answer=null`, empty recommendations/evidence, and a non-secret diagnostic code.
+No prompts or provider responses are persisted.
+
 ## Current boundaries
 
 - Only authorized captures may enter the capture-job endpoints.

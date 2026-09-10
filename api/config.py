@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     AUTH_JWT_SECRET: Optional[str] = None
     AUTH_ACCESS_TOKEN_MINUTES: int = 30
 
+    # Optional read-only AI insights provider
+    AGENT_PROVIDER: Optional[str] = None
+    AGENT_MODEL: Optional[str] = None
+    AGENT_API_KEY: Optional[str] = None
+    AGENT_BASE_URL: Optional[str] = None
+    AGENT_TIMEOUT_SECONDS: float = 20.0
+    AGENT_MAX_RESPONSE_BYTES: int = 256 * 1024
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

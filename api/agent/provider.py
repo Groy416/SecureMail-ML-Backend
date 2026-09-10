@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+import json
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from pydantic import ValidationError
+
+from api.config import settings
+from api.schemas import AgentAdvisory
+
+DEFAULT_BASE_URLS = {
+    "openai": "https://api.openai.com/v1",
+    "groq": "https://api.groq.com/openai/v1",
+}
+
+
+class AgentProviderError(RuntimeError):
+    """A safe, stable provider failure code."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+class AgentProvider(Protocol):
+    provider: str
+    model: str
+
+    def generate(self, system: str, user: str) -> AgentAdvisory: ...
+
+
+@dataclass(frozen=True)
+class OpenAICompatibleProvider:
+    provider: str
+    model: str
+    api_key: str
+    base_url: str
+    timeout_seconds: float
+    max_response_bytes: int
+    opener: Callable[..., Any] | None = None
+
+    def generate(self, system: str, user: str) -> AgentAdvisory:
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "temperature": 0,
+                "response_format": {"type": "json_object"},
+            }
+        ).encode("utf-8")
+        request = Request(
+            f"{self.base_url.rstrip('/')}/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with (self.opener or urlopen)(request, timeout=self.timeout_seconds) as response:
+                raw = response.read(self.max_response_bytes + 1)
+        except HTTPError as exc:
+            raise AgentProviderError("provider_http_error") from exc
+        except (TimeoutError, URLError, OSError):
+            raise AgentProviderError("provider_unavailable") from None
+        if len(raw) > self.max_response_bytes:
+            raise AgentProviderError("provider_response_too_large")
+        try:
+            body = json.loads(raw)
+            content = body["choices"][0]["message"]["content"]
+            advisory = json.loads(content) if isinstance(content, str) else content
+            return AgentAdvisory.model_validate(advisory)
+        except (ValueError, KeyError, IndexError, TypeError, ValidationError):
+            raise AgentProviderError("provider_invalid_response") from None
+
+
+def create_agent_provider() -> AgentProvider | None:
+    provider = (settings.AGENT_PROVIDER or "").lower()
+    model = settings.AGENT_MODEL
+    api_key = settings.AGENT_API_KEY
+    if not provider or not model or not api_key:
+        return None
+    if provider not in DEFAULT_BASE_URLS:
+        return None
+    return OpenAICompatibleProvider(
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        base_url=settings.AGENT_BASE_URL or DEFAULT_BASE_URLS[provider],
+        timeout_seconds=settings.AGENT_TIMEOUT_SECONDS,
+        max_response_bytes=settings.AGENT_MAX_RESPONSE_BYTES,
+    )

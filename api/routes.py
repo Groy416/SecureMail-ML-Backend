@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ml.pipeline import predict_session
+from api.agent.routes import agent_router
 from ml.product import PayloadRejected, inference_record
 
 from api.database import AnalysisRecord, CaptureSession, ValidationRecord
@@ -44,6 +45,7 @@ from api.schemas import (
 logger = logging.getLogger("securemailscope.api")
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
+router.include_router(agent_router)
 
 
 # --------------------------------------------------------------------------- #
