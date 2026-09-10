@@ -164,8 +164,8 @@ Configure the optional provider server-side with `AGENT_PROVIDER=openai`,
 Studio Gemini, use `AGENT_MODEL=gemini-3.5-flash-lite`; the default native base
 URL is `https://generativelanguage.googleapis.com/v1beta`. `AGENT_BASE_URL`
 can override the provider base URL. Gemini uses the native `generateContent`
-request with `responseMimeType=application/json` and validates the result
-against the backend advisory schema. Requests have a 20-second default
+request with `responseMimeType=application/json` plus a bounded JSON schema,
+and validates the result against the backend advisory schema. Requests have a 20-second default
 timeout, 256 KiB response limit, 6,000-character memory limit, and
 24,000-character assembled context limit; there are no retries.
 

@@ -19,6 +19,40 @@ DEFAULT_BASE_URLS = {
     "gemini": "https://generativelanguage.googleapis.com/v1beta",
 }
 
+GEMINI_ADVISORY_SCHEMA = {
+    "type": "object",
+    "required": ["answer", "active_step", "memory_update"],
+    "properties": {
+        "answer": {"type": "string"},
+        "recommendations": {"type": "array", "items": {"type": "string"}},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "active_step": {
+            "type": "object",
+            "required": ["id", "title", "status", "evidence"],
+            "properties": {
+                "id": {"type": "string"},
+                "title": {"type": "string"},
+                "status": {
+                    "type": "string",
+                    "enum": ["proposed", "in_progress", "waiting_for_result", "completed"],
+                },
+                "evidence": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        "memory_update": {
+            "type": "object",
+            "required": ["summary", "facts", "completed_steps", "active_step", "pending_questions"],
+            "properties": {
+                "summary": {"type": "string"},
+                "facts": {"type": "array", "items": {"type": "string"}},
+                "completed_steps": {"type": "array", "items": {"type": "string"}},
+                "active_step": {"type": "object"},
+                "pending_questions": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+    },
+}
+
 
 class AgentProviderError(RuntimeError):
     """A safe, stable provider failure code."""
@@ -116,6 +150,7 @@ class OpenAICompatibleProvider:
                     "topP": 0.95,
                     "maxOutputTokens": 2048,
                     "responseMimeType": "application/json",
+                    "responseJsonSchema": GEMINI_ADVISORY_SCHEMA,
                 },
             }
         ).encode("utf-8")
