@@ -140,14 +140,17 @@ def test_out_of_scope_request_does_not_call_provider(monkeypatch):
     assert body["memory_persisted"] is False
 
 
-def test_agent_rejects_unknown_provider_evidence(monkeypatch):
+def test_agent_omits_unknown_provider_evidence(monkeypatch):
     monkeypatch.delenv("SECUREMAIL_API_KEY", raising=False)
-    monkeypatch.setattr("api.agent.routes.create_agent_provider", lambda: FakeProvider(focused_advisory(evidence=["not-in-analysis"])))
+    monkeypatch.setattr(
+        "api.agent.routes.create_agent_provider",
+        lambda: FakeProvider(focused_advisory(evidence=["TLS-001", "not-in-analysis"])),
+    )
     with TestClient(create_app()) as client:
         response = client.post("/api/v1/agent/insights", json=request_payload(sample_analysis("unknown-evidence")))
     assert response.status_code == 200
-    assert response.json()["status"] == "degraded"
-    assert response.json()["diagnostics"]["errors"] == ["invalid_evidence"]
+    assert response.json()["status"] == "complete"
+    assert response.json()["evidence"] == ["TLS-001"]
 
 
 def test_agent_provider_failure_is_degraded(monkeypatch):

@@ -117,17 +117,9 @@ async def agent_insights(
             user_content,
         )
         permitted = allowed_evidence(body.analysis)
-        if any(item not in permitted for item in advisory.evidence):
-            return _degraded(
-                request_id,
-                body.section,
-                provider_name,
-                model,
-                "invalid_evidence",
-                thread_id=thread_id,
-                memory_revision=memory_revision,
-                active_step=memory.active_step,
-            )
+        advisory = advisory.model_copy(
+            update={"evidence": [item for item in advisory.evidence if item in permitted]}
+        )
         proposed_memory = apply_focus_policy(
             memory,
             advisory.memory_update,
