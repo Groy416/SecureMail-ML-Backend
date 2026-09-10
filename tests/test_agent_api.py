@@ -31,8 +31,35 @@ def sample_analysis() -> dict:
     }
 
 
-def request_payload() -> dict:
-    return {"analysis": sample_analysis(), "section": "risk", "question": "Explain the risk."}
+def history_analysis() -> dict:
+    return {
+        "id": 1,
+        "request_id": "analysis-request",
+        "session_id": "session-1",
+        "client_id": "capture-1",
+        "capture_id": "capture-1",
+        "protocol": "SMTP",
+        "posture": "modern",
+        "timestamp": "2026-09-10T00:00:00Z",
+        "record_count": 1,
+        "evidence_ref_count": 1,
+        "risk_score": 0.69,
+        "final_verdict": "high",
+        "rule_score": None,
+        "rule_triggers_count": 1,
+        "trigger_details": [{"finding_id": "TLS-001", "title": "Deprecated TLS", "severity": "critical", "evidence_refs": ["pcap:tls"]}],
+        "ml_scores": {"xgboost": {"risk_probability": 0.4}},
+        "explanations": {},
+        "model_bundle": {"version": "test"},
+        "tls_details": {"version": "TLS 1.3"},
+        "certificate_details": None,
+        "is_synthetic": False,
+        "source_label": None,
+    }
+
+
+def request_payload(analysis: dict | None = None) -> dict:
+    return {"analysis": analysis or sample_analysis(), "section": "risk", "question": "Explain the risk."}
 
 
 def test_agent_requires_api_key(monkeypatch):
@@ -53,6 +80,18 @@ def test_agent_returns_structured_advisory(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "complete"
     assert response.json()["evidence"] == ["TLS-001"]
+
+
+def test_agent_accepts_persisted_history_record(monkeypatch):
+    monkeypatch.delenv("SECUREMAIL_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "api.agent.routes.create_agent_provider",
+        lambda: FakeProvider(AgentAdvisory(answer="History record explained.", evidence=["TLS-001", "pcap:tls"])),
+    )
+    with TestClient(create_app()) as client:
+        response = client.post("/api/v1/agent/insights", json=request_payload(history_analysis()))
+    assert response.status_code == 200
+    assert response.json()["status"] == "complete"
 
 
 def test_agent_rejects_unknown_provider_evidence(monkeypatch):

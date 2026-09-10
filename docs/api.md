@@ -148,7 +148,7 @@ dashboard data.
 
 ## Authorized AI insights
 
-`POST /agent/insights` explains an existing `analysis-response.v1` result for an analyst. It uses the same raw API-key authentication and accepts only these sections: `overview`, `risk`, `tls`, `certificate`, and `findings`.
+`POST /agent/insights` explains an existing analysis for an analyst. The `analysis` field accepts either the live `analysis-response.v1` object returned by `POST /analyses` or the persisted `AnalysisRecordResponse` object returned by `GET /analyses` and `GET /analyses/{request_id}`. It uses the same raw API-key authentication and accepts only these sections: `overview`, `risk`, `tls`, `certificate`, and `findings`.
 
 ```json
 {
@@ -164,7 +164,7 @@ Configure the optional provider server-side with `AGENT_PROVIDER=openai` or
 provider's OpenAI-compatible API base URL. Requests have a 20-second default
 timeout and 256 KiB response limit; there are no retries.
 
-The backend rebuilds a section-specific allowlist from the supplied analysis.
+The backend rebuilds a section-specific allowlist from either analysis shape. Persisted records are normalized from their stored risk, trigger, model, TLS, and certificate fields; no history endpoint transformation is required.
 It does not forward raw records, packet contents, email data, credentials,
 private keys, authorization headers, or unknown fields. The AI response is
 advisory: deterministic findings and the existing verdict remain authoritative,

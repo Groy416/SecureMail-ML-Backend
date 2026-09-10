@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - The endpoint is `POST /api/v1/agent/insights`.
-- Accept only existing safe `analysis-response.v1` context; never arbitrary `section_data`.
+- Accept only existing safe `analysis-response.v1` or persisted `AnalysisRecordResponse` context; never arbitrary `section_data`.
 - Allowed sections are `overview`, `risk`, `tls`, `certificate`, and `findings`.
 - Do not add a provider SDK; use the standard library for the first non-streaming adapter.
 - Do not send or persist email bodies, credentials, tokens, private keys, raw PCAP, or authorization headers.
@@ -66,7 +66,7 @@ Expected: collection failure because `api.agent.context` and agent models do not
 
 - [ ] **Step 3: Implement the versioned Pydantic envelopes and section allowlist**
 
-Use `Literal` for the five sections and for `status`. Bound `question` to a finite length (maximum 4,000 characters). Build a new dictionary per section from explicit keys; never return `analysis.model_dump()` or recursively copy unknown fields. Include only safe identifiers, protocol/posture, risk fields, deterministic finding summaries, TLS details, certificate details, and diagnostics as specified by the design.
+Use `Literal` for the five sections and for `status`. Bound `question` to a finite length (maximum 4,000 characters). Accept either live `analysis-response.v1` or persisted `AnalysisRecordResponse`, normalize both through explicit fields, and build a new dictionary per section; never return `analysis.model_dump()` or recursively copy unknown fields. Include only safe identifiers, protocol/posture, risk fields, deterministic finding summaries, TLS details, certificate details, and diagnostics as specified by the design.
 
 - [ ] **Step 4: Run the focused tests and confirm filtering passes**
 

@@ -15,7 +15,7 @@ Add a read-only, authenticated AI-insights endpoint that explains an existing Se
 - `POST /api/v1/agent/insights`.
 - API-key authentication using the existing `SECUREMAIL_API_KEY` boundary.
 - Typed request/response models with versioned envelopes.
-- Allowlisted section context derived only from an existing `analysis-response.v1` payload.
+- Allowlisted section context derived from an existing live `analysis-response.v1` or persisted `AnalysisRecordResponse` payload.
 - OpenAI-compatible, non-streaming provider adapter configurable for OpenAI or Groq.
 - Bounded timeout, response-size limit, safe degraded states, and structured diagnostics.
 - Unit/API tests using a typed fake provider; no live provider calls in tests.
@@ -39,7 +39,7 @@ Add a read-only, authenticated AI-insights endpoint that explains an existing Se
 ```json
 {
   "schema_version": "agent-insight-request.v1",
-  "analysis": { "...existing analysis-response.v1...": true },
+  "analysis": { "...existing analysis-response.v1 or AnalysisRecordResponse...": true },
   "section": "risk",
   "question": "Explain the main risk drivers and what should be checked next."
 }
@@ -47,7 +47,7 @@ Add a read-only, authenticated AI-insights endpoint that explains an existing Se
 
 `section` is one of `overview`, `risk`, `tls`, `certificate`, or `findings`.
 `question` is bounded to a finite length and treated as untrusted text.
-The supplied analysis must validate as the existing safe analysis response shape. The implementation may accept the response's safe fields directly but must rebuild the model context from an allowlist rather than serialize the whole request.
+The supplied analysis must validate as either the live `analysis-response.v1` shape or the persisted `AnalysisRecordResponse` shape returned by history endpoints. Persisted records are normalized from stored risk, trigger, model, TLS, and certificate fields. The implementation must rebuild the model context from an allowlist rather than serialize the whole request.
 
 ### Response
 

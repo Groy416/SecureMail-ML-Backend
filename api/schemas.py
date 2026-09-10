@@ -96,38 +96,6 @@ class AnalysisResponse(BaseModel):
     diagnostics: dict[str, list[str]] = Field(default_factory=dict)
 
 
-class AgentInsightRequest(BaseModel):
-    """Request for a read-only explanation of an existing analysis."""
-
-    schema_version: Literal["agent-insight-request.v1"] = "agent-insight-request.v1"
-    analysis: AnalysisResponse
-    section: AgentSection
-    question: str = Field(..., min_length=1, max_length=4000)
-
-
-class AgentAdvisory(BaseModel):
-    """Provider-produced advisory payload before the API envelope is added."""
-
-    answer: str = Field(..., min_length=1, max_length=12000)
-    recommendations: list[str] = Field(default_factory=list, max_length=10)
-    evidence: list[str] = Field(default_factory=list, max_length=20)
-
-
-class AgentInsightResponse(BaseModel):
-    """Advisory AI response; it never replaces the authoritative analysis."""
-
-    schema_version: Literal["agent-insight-response.v1"] = "agent-insight-response.v1"
-    request_id: str
-    status: Literal["complete", "degraded"]
-    section: AgentSection
-    answer: str | None = None
-    recommendations: list[str] = Field(default_factory=list)
-    evidence: list[str] = Field(default_factory=list)
-    provider: str | None = None
-    model: str | None = None
-    diagnostics: dict[str, list[str]] = Field(default_factory=dict)
-
-
 class ErrorResponse(BaseModel):
     """Error response envelope for rejected or failed requests."""
 
@@ -329,6 +297,38 @@ class AnalysisRecordResponse(BaseModel):
     certificate_details: dict[str, Any] | None = None
     is_synthetic: bool
     source_label: str | None
+
+
+class AgentInsightRequest(BaseModel):
+    """Request for a read-only explanation of a live or persisted analysis."""
+
+    schema_version: Literal["agent-insight-request.v1"] = "agent-insight-request.v1"
+    analysis: AnalysisResponse | AnalysisRecordResponse
+    section: AgentSection
+    question: str = Field(..., min_length=1, max_length=4000)
+
+
+class AgentAdvisory(BaseModel):
+    """Provider-produced advisory payload before the API envelope is added."""
+
+    answer: str = Field(..., min_length=1, max_length=12000)
+    recommendations: list[str] = Field(default_factory=list, max_length=10)
+    evidence: list[str] = Field(default_factory=list, max_length=20)
+
+
+class AgentInsightResponse(BaseModel):
+    """Advisory AI response; it never replaces the authoritative analysis."""
+
+    schema_version: Literal["agent-insight-response.v1"] = "agent-insight-response.v1"
+    request_id: str
+    status: Literal["complete", "degraded"]
+    section: AgentSection
+    answer: str | None = None
+    recommendations: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    provider: str | None = None
+    model: str | None = None
+    diagnostics: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class AnalysisListResponse(BaseModel):
