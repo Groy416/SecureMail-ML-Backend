@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     AGENT_MODEL: Optional[str] = None
     AGENT_API_KEY: Optional[str] = None
     AGENT_BASE_URL: Optional[str] = None
-    AGENT_TIMEOUT_SECONDS: float = 20.0
+    AGENT_TIMEOUT_SECONDS: float = 30.0
     AGENT_MAX_RESPONSE_BYTES: int = 256 * 1024
     AGENT_MEMORY_MAX_CHARS: int = 6000
     AGENT_CONTEXT_MAX_CHARS: int = 24000

@@ -29,7 +29,7 @@ GEMINI_ACTIVE_STEP_SCHEMA = {
             "type": "string",
             "enum": ["proposed", "in_progress", "waiting_for_result", "completed"],
         },
-        "evidence": {"type": "array", "items": {"type": "string"}},
+        "evidence": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
     },
 }
 
@@ -38,18 +38,18 @@ GEMINI_ADVISORY_SCHEMA = {
     "required": ["answer", "active_step", "memory_update"],
     "properties": {
         "answer": {"type": "string"},
-        "recommendations": {"type": "array", "items": {"type": "string"}},
-        "evidence": {"type": "array", "items": {"type": "string"}},
+        "recommendations": {"type": "array", "items": {"type": "string"}, "maxItems": 1},
+        "evidence": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
         "active_step": GEMINI_ACTIVE_STEP_SCHEMA,
         "memory_update": {
             "type": "object",
             "required": ["summary", "facts", "completed_steps", "active_step", "pending_questions"],
             "properties": {
                 "summary": {"type": "string"},
-                "facts": {"type": "array", "items": {"type": "string"}},
-                "completed_steps": {"type": "array", "items": {"type": "string"}},
+                "facts": {"type": "array", "items": {"type": "string"}, "maxItems": 12},
+                "completed_steps": {"type": "array", "items": {"type": "string"}, "maxItems": 12},
                 "active_step": GEMINI_ACTIVE_STEP_SCHEMA,
-                "pending_questions": {"type": "array", "items": {"type": "string"}},
+                "pending_questions": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
             },
         },
     },
@@ -143,6 +143,10 @@ class OpenAICompatibleProvider:
         base_url = self.base_url.rstrip("/")
         if base_url.endswith("/openai"):
             base_url = base_url.removesuffix("/openai")
+        if "/models/" in base_url:
+            base_url = base_url.split("/models/")[0]
+        if "?" in base_url:
+            base_url = base_url.split("?")[0]
         payload = json.dumps(
             {
                 "systemInstruction": {"parts": [{"text": system}]},
@@ -201,6 +205,29 @@ class OpenAICompatibleProvider:
                 content = json.loads(content)
             except ValueError:
                 raise AgentProviderError("provider_invalid_json") from None
+
+        if isinstance(content, dict):
+            if isinstance(content.get("recommendations"), list):
+                content["recommendations"] = content["recommendations"][:1]
+            if isinstance(content.get("evidence"), list):
+                content["evidence"] = content["evidence"][:20]
+            if isinstance(content.get("active_step"), dict) and isinstance(
+                content["active_step"].get("evidence"), list
+            ):
+                content["active_step"]["evidence"] = content["active_step"]["evidence"][:10]
+            if isinstance(content.get("memory_update"), dict):
+                mem = content["memory_update"]
+                if isinstance(mem.get("facts"), list):
+                    mem["facts"] = mem["facts"][:12]
+                if isinstance(mem.get("completed_steps"), list):
+                    mem["completed_steps"] = mem["completed_steps"][:12]
+                if isinstance(mem.get("pending_questions"), list):
+                    mem["pending_questions"] = mem["pending_questions"][:8]
+                if isinstance(mem.get("active_step"), dict) and isinstance(
+                    mem["active_step"].get("evidence"), list
+                ):
+                    mem["active_step"]["evidence"] = mem["active_step"]["evidence"][:10]
+
         try:
             return AgentAdvisory.model_validate(content)
         except (TypeError, ValidationError):

@@ -160,8 +160,8 @@ def test_gemini_uses_native_generate_content_json_mode():
         "required": ["answer", "active_step", "memory_update"],
         "properties": {
             "answer": {"type": "string"},
-            "recommendations": {"type": "array", "items": {"type": "string"}},
-            "evidence": {"type": "array", "items": {"type": "string"}},
+            "recommendations": {"type": "array", "items": {"type": "string"}, "maxItems": 1},
+            "evidence": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
             "active_step": {
                 "type": "object",
                 "required": ["id", "title", "status", "evidence"],
@@ -169,7 +169,7 @@ def test_gemini_uses_native_generate_content_json_mode():
                     "id": {"type": "string"},
                     "title": {"type": "string"},
                     "status": {"type": "string", "enum": ["proposed", "in_progress", "waiting_for_result", "completed"]},
-                    "evidence": {"type": "array", "items": {"type": "string"}},
+                    "evidence": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
                 },
             },
             "memory_update": {
@@ -177,8 +177,8 @@ def test_gemini_uses_native_generate_content_json_mode():
                 "required": ["summary", "facts", "completed_steps", "active_step", "pending_questions"],
                 "properties": {
                     "summary": {"type": "string"},
-                    "facts": {"type": "array", "items": {"type": "string"}},
-                    "completed_steps": {"type": "array", "items": {"type": "string"}},
+                    "facts": {"type": "array", "items": {"type": "string"}, "maxItems": 12},
+                    "completed_steps": {"type": "array", "items": {"type": "string"}, "maxItems": 12},
                     "active_step": {
                         "type": "object",
                         "required": ["id", "title", "status", "evidence"],
@@ -186,10 +186,10 @@ def test_gemini_uses_native_generate_content_json_mode():
                             "id": {"type": "string"},
                             "title": {"type": "string"},
                             "status": {"type": "string", "enum": ["proposed", "in_progress", "waiting_for_result", "completed"]},
-                            "evidence": {"type": "array", "items": {"type": "string"}},
+                            "evidence": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
                         },
                     },
-                    "pending_questions": {"type": "array", "items": {"type": "string"}},
+                    "pending_questions": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
                 },
             },
         },
@@ -236,3 +236,67 @@ def test_factory_supports_groq(monkeypatch):
     assert provider is not None
     assert provider.provider == "groq"
     assert provider.base_url == "https://api.groq.com/openai/v1"
+
+
+def test_provider_clamps_oversized_recommendations_and_evidence():
+    payload = {
+        "answer": "ok",
+        "recommendations": ["rec 1", "rec 2", "rec 3"],
+        "evidence": [f"ev_{i}" for i in range(25)],
+        "active_step": {
+            "id": "step-1",
+            "title": "Verify step",
+            "status": "proposed",
+            "evidence": [f"ev_{i}" for i in range(15)],
+        },
+        "memory_update": {
+            "summary": "Summary",
+            "facts": [f"fact_{i}" for i in range(15)],
+            "completed_steps": [f"step_{i}" for i in range(15)],
+            "active_step": {
+                "id": "step-1",
+                "title": "Verify step",
+                "status": "proposed",
+                "evidence": [f"ev_{i}" for i in range(15)],
+            },
+            "pending_questions": [f"q_{i}" for i in range(12)],
+        },
+    }
+    provider = OpenAICompatibleProvider(
+        "openai",
+        "model",
+        "secret",
+        "https://example.test/v1",
+        3,
+        4096,
+        lambda *_args, **_kwargs: FakeResponse(completion_body(payload)),
+    )
+    result = provider.generate("system", "user")
+    assert result.recommendations == ["rec 1"]
+    assert len(result.evidence) == 20
+    assert len(result.active_step.evidence) == 10
+    assert len(result.memory_update.facts) == 12
+    assert len(result.memory_update.completed_steps) == 12
+    assert len(result.memory_update.pending_questions) == 8
+    assert len(result.memory_update.active_step.evidence) == 10
+
+
+def test_gemini_normalizes_full_model_url():
+    captured = {}
+
+    def opener(request, timeout):
+        captured["url"] = request.full_url
+        return FakeResponse(gemini_body(advisory_payload()))
+
+    provider = OpenAICompatibleProvider(
+        "gemini",
+        "gemini-test",
+        "secret",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=AIzaSyTestKey",
+        3,
+        4096,
+        opener,
+    )
+    assert provider.generate("system", "user").answer == "ok"
+    assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/models/gemini-test:generateContent"
+
