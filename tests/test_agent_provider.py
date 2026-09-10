@@ -179,7 +179,16 @@ def test_gemini_uses_native_generate_content_json_mode():
                     "summary": {"type": "string"},
                     "facts": {"type": "array", "items": {"type": "string"}},
                     "completed_steps": {"type": "array", "items": {"type": "string"}},
-                    "active_step": {"type": "object"},
+                    "active_step": {
+                        "type": "object",
+                        "required": ["id", "title", "status", "evidence"],
+                        "properties": {
+                            "id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "status": {"type": "string", "enum": ["proposed", "in_progress", "waiting_for_result", "completed"]},
+                            "evidence": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
                     "pending_questions": {"type": "array", "items": {"type": "string"}},
                 },
             },
