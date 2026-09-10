@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from api.agent.provider import AgentProviderError, OpenAICompatibleProvider
+from api.agent.provider import (
+    AgentProviderError,
+    OpenAICompatibleProvider,
+    build_agent_user_content,
+)
+from api.schemas import AgentMemoryState
 
 
 class FakeResponse:
@@ -19,6 +26,36 @@ class FakeResponse:
         return self.body
 
 
+def completion_body(payload: dict) -> bytes:
+    return json.dumps({"choices": [{"message": {"content": json.dumps(payload)}}]}).encode()
+
+
+def advisory_payload() -> dict:
+    return {
+        "answer": "ok",
+        "recommendations": ["Verify the chain."],
+        "evidence": [],
+        "active_step": {
+            "id": "verify-chain",
+            "title": "Verify the chain",
+            "status": "in_progress",
+            "evidence": [],
+        },
+        "memory_update": {
+            "summary": "Verifying the chain.",
+            "facts": [],
+            "completed_steps": [],
+            "active_step": {
+                "id": "verify-chain",
+                "title": "Verify the chain",
+                "status": "in_progress",
+                "evidence": [],
+            },
+            "pending_questions": [],
+        },
+    }
+
+
 def test_provider_posts_chat_completion_without_exposing_secret():
     captured = {}
 
@@ -26,19 +63,28 @@ def test_provider_posts_chat_completion_without_exposing_secret():
         captured["url"] = request.full_url
         captured["timeout"] = timeout
         captured["auth"] = request.get_header("Authorization")
-        return FakeResponse(b'{"choices":[{"message":{"content":"{\\"answer\\":\\"ok\\",\\"recommendations\\":[],\\"evidence\\":[]}"}}]}')
+        return FakeResponse(completion_body(advisory_payload()))
 
     provider = OpenAICompatibleProvider("openai", "model", "secret", "https://example.test/v1", 3, 1024, opener)
     result = provider.generate("system", "user")
 
     assert result.answer == "ok"
+    assert result.memory_update.active_step.id == "verify-chain"
     assert captured == {"url": "https://example.test/v1/chat/completions", "timeout": 3, "auth": "Bearer secret"}
 
 
 def test_provider_accepts_fenced_json_response():
-    body = b'{"choices":[{"message":{"content":"```json\\n{\\"answer\\":\\"ok\\",\\"recommendations\\":[],\\"evidence\\":[]}\\n```"}}]}'
-    provider = OpenAICompatibleProvider("groq", "model", "secret", "https://example.test/v1", 3, 1024, lambda *_args, **_kwargs: FakeResponse(body))
+    content = f"```json\n{json.dumps(advisory_payload())}\n```"
+    body = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
+    provider = OpenAICompatibleProvider("groq", "model", "secret", "https://example.test/v1", 3, 4096, lambda *_args, **_kwargs: FakeResponse(body))
     assert provider.generate("system", "user").answer == "ok"
+
+
+def test_user_content_rejects_over_budget_payload():
+    with pytest.raises(AgentProviderError, match="context_too_large"):
+        build_agent_user_content(
+            "risk", "question", {"x": "y"}, AgentMemoryState(summary="x" * 6000), 1000
+        )
 
 
 def test_provider_rejects_oversized_response():

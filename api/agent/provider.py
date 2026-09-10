@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 from pydantic import ValidationError
 
 from api.config import settings
-from api.schemas import AgentAdvisory
+from api.schemas import AgentAdvisory, AgentMemoryState
 
 DEFAULT_BASE_URLS = {
     "openai": "https://api.openai.com/v1",
@@ -24,6 +24,27 @@ class AgentProviderError(RuntimeError):
     def __init__(self, code: str):
         super().__init__(code)
         self.code = code
+
+
+def build_agent_user_content(
+    section: str,
+    question: str,
+    context: dict[str, Any],
+    memory: AgentMemoryState,
+    max_chars: int,
+) -> str:
+    payload = json.dumps(
+        {
+            "section": section,
+            "question": question,
+            "memory": memory.model_dump(mode="json"),
+            "context": context,
+        },
+        separators=(",", ":"),
+    )
+    if len(payload.encode("utf-8")) > max_chars:
+        raise AgentProviderError("context_too_large")
+    return payload
 
 
 class AgentProvider(Protocol):
