@@ -70,6 +70,21 @@ class AnalysisRecord(Base):
     )
 
 
+class AgentMemoryRecord(Base):
+    __tablename__ = "agent_memory"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    analysis_request_id: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    memory: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
 class CaptureJob(Base):
     __tablename__ = "capture_jobs"
 

@@ -299,6 +299,24 @@ class AnalysisRecordResponse(BaseModel):
     source_label: str | None
 
 
+AgentStepStatus = Literal["proposed", "in_progress", "waiting_for_result", "completed"]
+
+
+class AgentActiveStep(BaseModel):
+    id: str = Field(..., min_length=1, max_length=128)
+    title: str = Field(..., min_length=1, max_length=240)
+    status: AgentStepStatus
+    evidence: list[str] = Field(default_factory=list, max_length=10)
+
+
+class AgentMemoryState(BaseModel):
+    summary: str = Field(default="", max_length=6000)
+    facts: list[str] = Field(default_factory=list, max_length=12)
+    completed_steps: list[str] = Field(default_factory=list, max_length=12)
+    active_step: AgentActiveStep | None = None
+    pending_questions: list[str] = Field(default_factory=list, max_length=8)
+
+
 class AgentInsightRequest(BaseModel):
     """Request for a read-only explanation of a live or persisted analysis."""
 
@@ -312,8 +330,10 @@ class AgentAdvisory(BaseModel):
     """Provider-produced advisory payload before the API envelope is added."""
 
     answer: str = Field(..., min_length=1, max_length=12000)
-    recommendations: list[str] = Field(default_factory=list, max_length=10)
+    recommendations: list[str] = Field(default_factory=list, max_length=1)
     evidence: list[str] = Field(default_factory=list, max_length=20)
+    active_step: AgentActiveStep | None = None
+    memory_update: AgentMemoryState
 
 
 class AgentInsightResponse(BaseModel):
@@ -329,6 +349,11 @@ class AgentInsightResponse(BaseModel):
     provider: str | None = None
     model: str | None = None
     diagnostics: dict[str, list[str]] = Field(default_factory=dict)
+    agent_name: str = "SecureMailScope Agent"
+    thread_id: str | None = None
+    memory_revision: int = 0
+    memory_persisted: bool = False
+    active_step: AgentActiveStep | None = None
 
 
 class AnalysisListResponse(BaseModel):

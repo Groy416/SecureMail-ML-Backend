@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     AGENT_BASE_URL: Optional[str] = None
     AGENT_TIMEOUT_SECONDS: float = 20.0
     AGENT_MAX_RESPONSE_BYTES: int = 256 * 1024
+    AGENT_MEMORY_MAX_CHARS: int = 6000
+    AGENT_CONTEXT_MAX_CHARS: int = 24000
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
