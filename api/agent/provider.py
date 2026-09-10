@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from pydantic import ValidationError
@@ -15,7 +16,7 @@ from api.schemas import AgentAdvisory, AgentMemoryState
 DEFAULT_BASE_URLS = {
     "openai": "https://api.openai.com/v1",
     "groq": "https://api.groq.com/openai/v1",
-    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "gemini": "https://generativelanguage.googleapis.com/v1beta",
 }
 
 
@@ -66,12 +67,10 @@ class OpenAICompatibleProvider:
     opener: Callable[..., Any] | None = None
 
     def generate(self, system: str, user: str) -> AgentAdvisory:
-        provider_options = {}
-        if self.provider == "groq":
-            provider_options["reasoning_effort"] = "default"
-        elif self.provider == "gemini":
-            provider_options["response_format"] = {"type": "json_object"}
+        if self.provider == "gemini":
+            return self._generate_gemini(system, user)
 
+        provider_options = {"reasoning_effort": "default"} if self.provider == "groq" else {}
         payload = json.dumps(
             {
                 "model": self.model,
@@ -96,6 +95,49 @@ class OpenAICompatibleProvider:
             },
             method="POST",
         )
+        raw = self._read_response(request)
+        try:
+            body = json.loads(raw)
+            content = body["choices"][0]["message"]["content"]
+            return self._parse_advisory(content)
+        except (ValueError, KeyError, IndexError, TypeError):
+            raise AgentProviderError("provider_invalid_response") from None
+
+    def _generate_gemini(self, system: str, user: str) -> AgentAdvisory:
+        base_url = self.base_url.rstrip("/")
+        if base_url.endswith("/openai"):
+            base_url = base_url.removesuffix("/openai")
+        payload = json.dumps(
+            {
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": user}]}],
+                "generationConfig": {
+                    "temperature": 0.6,
+                    "topP": 0.95,
+                    "maxOutputTokens": 2048,
+                    "responseMimeType": "application/json",
+                },
+            }
+        ).encode("utf-8")
+        request = Request(
+            f"{base_url}/models/{quote(self.model, safe='')}:generateContent",
+            data=payload,
+            headers={
+                "x-goog-api-key": self.api_key,
+                "Content-Type": "application/json",
+                "User-Agent": "securemail-agent/0.1",
+            },
+            method="POST",
+        )
+        raw = self._read_response(request)
+        try:
+            body = json.loads(raw)
+            content = body["candidates"][0]["content"]["parts"][0]["text"]
+            return self._parse_advisory(content)
+        except (ValueError, KeyError, IndexError, TypeError):
+            raise AgentProviderError("provider_invalid_response") from None
+
+    def _read_response(self, request: Request) -> bytes:
         try:
             with (self.opener or urlopen)(request, timeout=self.timeout_seconds) as response:
                 raw = response.read(self.max_response_bytes + 1)
@@ -105,18 +147,18 @@ class OpenAICompatibleProvider:
             raise AgentProviderError("provider_unavailable") from None
         if len(raw) > self.max_response_bytes:
             raise AgentProviderError("provider_response_too_large")
+        return raw
+
+    @staticmethod
+    def _parse_advisory(content: Any) -> AgentAdvisory:
         try:
-            body = json.loads(raw)
-            content = body["choices"][0]["message"]["content"]
             if isinstance(content, str):
                 content = content.strip()
                 if content.startswith("```"):
                     content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-                advisory = json.loads(content)
-            else:
-                advisory = content
-            return AgentAdvisory.model_validate(advisory)
-        except (ValueError, KeyError, IndexError, TypeError, ValidationError):
+                content = json.loads(content)
+            return AgentAdvisory.model_validate(content)
+        except (ValueError, TypeError, ValidationError):
             raise AgentProviderError("provider_invalid_response") from None
 
 

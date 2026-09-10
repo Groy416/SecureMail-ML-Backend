@@ -161,11 +161,11 @@ dashboard data.
 
 Configure the optional provider server-side with `AGENT_PROVIDER=openai`,
 `groq`, or `gemini`, plus `AGENT_MODEL` and `AGENT_API_KEY`. For Google AI
-Studio Gemini, use `AGENT_MODEL=gemini-3.5-flash-lite`; the default compatible base
-URL is `https://generativelanguage.googleapis.com/v1beta/openai`. `AGENT_BASE_URL`
-can override any provider's OpenAI-compatible API base URL. Gemini requests
-explicitly request a JSON object and are still validated against the backend
-advisory schema. Requests have a 20-second default
+Studio Gemini, use `AGENT_MODEL=gemini-3.5-flash-lite`; the default native base
+URL is `https://generativelanguage.googleapis.com/v1beta`. `AGENT_BASE_URL`
+can override the provider base URL. Gemini uses the native `generateContent`
+request with `responseMimeType=application/json` and validates the result
+against the backend advisory schema. Requests have a 20-second default
 timeout, 256 KiB response limit, 6,000-character memory limit, and
 24,000-character assembled context limit; there are no retries.
 

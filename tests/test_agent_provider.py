@@ -30,6 +30,10 @@ def completion_body(payload: dict) -> bytes:
     return json.dumps({"choices": [{"message": {"content": json.dumps(payload)}}]}).encode()
 
 
+def gemini_body(payload: dict) -> bytes:
+    return json.dumps({"candidates": [{"content": {"parts": [{"text": json.dumps(payload)}]}}]}).encode()
+
+
 def advisory_payload() -> dict:
     return {
         "answer": "ok",
@@ -99,17 +103,32 @@ def test_provider_rejects_invalid_advisory():
         provider.generate("system", "user")
 
 
-def test_gemini_request_enables_json_object_mode():
+def test_gemini_uses_native_generate_content_json_mode():
     captured = {}
 
     def opener(request, timeout):
+        captured["url"] = request.full_url
+        captured["api_key"] = request.get_header("X-goog-api-key")
         captured["payload"] = json.loads(request.data)
-        return FakeResponse(completion_body(advisory_payload()))
+        return FakeResponse(gemini_body(advisory_payload()))
 
-    provider = OpenAICompatibleProvider("gemini", "gemini-test", "secret", "https://example.test/v1", 3, 4096, opener)
-    provider.generate("system", "user")
+    provider = OpenAICompatibleProvider("gemini", "gemini-test", "secret", "https://example.test/v1/openai", 3, 4096, opener)
+    assert provider.generate("system", "user").answer == "ok"
 
-    assert captured["payload"]["response_format"] == {"type": "json_object"}
+    assert captured == {
+        "url": "https://example.test/v1/models/gemini-test:generateContent",
+        "api_key": "secret",
+        "payload": {
+            "systemInstruction": {"parts": [{"text": "system"}]},
+            "contents": [{"role": "user", "parts": [{"text": "user"}]}],
+            "generationConfig": {
+                "temperature": 0.6,
+                "topP": 0.95,
+                "maxOutputTokens": 2048,
+                "responseMimeType": "application/json",
+            },
+        },
+    }
 
 
 def test_factory_supports_gemini(monkeypatch):
@@ -123,7 +142,7 @@ def test_factory_supports_gemini(monkeypatch):
     provider = create_agent_provider()
     assert provider is not None
     assert provider.provider == "gemini"
-    assert provider.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert provider.base_url == "https://generativelanguage.googleapis.com/v1beta"
 
 
 def test_factory_supports_groq(monkeypatch):
