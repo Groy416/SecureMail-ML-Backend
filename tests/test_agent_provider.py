@@ -34,6 +34,23 @@ def gemini_body(payload: dict) -> bytes:
     return json.dumps({"candidates": [{"content": {"parts": [{"text": json.dumps(payload)}]}}]}).encode()
 
 
+def gemini_body_with_thought(payload: dict) -> bytes:
+    return json.dumps(
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"thought": True, "text": "I need to inspect the advisory fields."},
+                            {"text": json.dumps(payload)},
+                        ]
+                    }
+                }
+            ]
+        }
+    ).encode()
+
+
 def advisory_payload() -> dict:
     return {
         "answer": "ok",
@@ -154,6 +171,20 @@ def test_gemini_uses_native_generate_content_json_mode():
             },
         },
     }
+
+
+def test_gemini_ignores_thought_parts_before_the_json_response():
+    provider = OpenAICompatibleProvider(
+        "gemini",
+        "gemini-test",
+        "secret",
+        "https://example.test/v1",
+        3,
+        4096,
+        lambda *_args, **_kwargs: FakeResponse(gemini_body_with_thought(advisory_payload())),
+    )
+
+    assert provider.generate("system", "user").answer == "ok"
 
 
 def test_factory_supports_gemini(monkeypatch):

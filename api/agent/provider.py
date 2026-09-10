@@ -167,7 +167,12 @@ class OpenAICompatibleProvider:
         raw = self._read_response(request)
         try:
             body = json.loads(raw)
-            content = body["candidates"][0]["content"]["parts"][0]["text"]
+            parts = body["candidates"][0]["content"]["parts"]
+            content = next(
+                part["text"]
+                for part in parts
+                if not part.get("thought") and isinstance(part.get("text"), str)
+            )
             return self._parse_advisory(content)
         except (ValueError, KeyError, IndexError, TypeError):
             raise AgentProviderError("provider_invalid_response") from None
