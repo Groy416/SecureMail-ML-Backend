@@ -15,6 +15,7 @@ from api.schemas import AgentAdvisory, AgentMemoryState
 DEFAULT_BASE_URLS = {
     "openai": "https://api.openai.com/v1",
     "groq": "https://api.groq.com/openai/v1",
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
 }
 
 
@@ -65,6 +66,12 @@ class OpenAICompatibleProvider:
     opener: Callable[..., Any] | None = None
 
     def generate(self, system: str, user: str) -> AgentAdvisory:
+        provider_options = {}
+        if self.provider == "groq":
+            provider_options["reasoning_effort"] = "default"
+        elif self.provider == "gemini":
+            provider_options["response_format"] = {"type": "json_object"}
+
         payload = json.dumps(
             {
                 "model": self.model,
@@ -76,7 +83,7 @@ class OpenAICompatibleProvider:
                 "top_p": 0.95,
                 "max_completion_tokens": 2048,
                 "stream": False,
-                **({"reasoning_effort": "default"} if self.provider == "groq" else {}),
+                **provider_options,
             }
         ).encode("utf-8")
         request = Request(

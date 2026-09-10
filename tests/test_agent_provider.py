@@ -99,6 +99,33 @@ def test_provider_rejects_invalid_advisory():
         provider.generate("system", "user")
 
 
+def test_gemini_request_enables_json_object_mode():
+    captured = {}
+
+    def opener(request, timeout):
+        captured["payload"] = json.loads(request.data)
+        return FakeResponse(completion_body(advisory_payload()))
+
+    provider = OpenAICompatibleProvider("gemini", "gemini-test", "secret", "https://example.test/v1", 3, 4096, opener)
+    provider.generate("system", "user")
+
+    assert captured["payload"]["response_format"] == {"type": "json_object"}
+
+
+def test_factory_supports_gemini(monkeypatch):
+    monkeypatch.setattr("api.agent.provider.settings.AGENT_PROVIDER", "gemini")
+    monkeypatch.setattr("api.agent.provider.settings.AGENT_MODEL", "gemini-test")
+    monkeypatch.setattr("api.agent.provider.settings.AGENT_API_KEY", "secret")
+    monkeypatch.setattr("api.agent.provider.settings.AGENT_BASE_URL", None)
+
+    from api.agent.provider import create_agent_provider
+
+    provider = create_agent_provider()
+    assert provider is not None
+    assert provider.provider == "gemini"
+    assert provider.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+
+
 def test_factory_supports_groq(monkeypatch):
     monkeypatch.setattr("api.agent.provider.settings.AGENT_PROVIDER", "groq")
     monkeypatch.setattr("api.agent.provider.settings.AGENT_MODEL", "llama-test")
