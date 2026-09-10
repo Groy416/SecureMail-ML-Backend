@@ -161,7 +161,7 @@ dashboard data.
 
 Configure the optional provider server-side with `AGENT_PROVIDER=openai`,
 `groq`, or `gemini`, plus `AGENT_MODEL` and `AGENT_API_KEY`. For Google AI
-Studio Gemini, use `AGENT_MODEL=gemini-3.8-flash`; the default compatible base
+Studio Gemini, use `AGENT_MODEL=gemini-3.5-flash-lite`; the default compatible base
 URL is `https://generativelanguage.googleapis.com/v1beta/openai`. `AGENT_BASE_URL`
 can override any provider's OpenAI-compatible API base URL. Gemini requests
 explicitly request a JSON object and are still validated against the backend
