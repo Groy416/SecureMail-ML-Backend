@@ -162,18 +162,31 @@ dashboard data.
 Configure the optional provider server-side with `AGENT_PROVIDER=openai` or
 `groq`, `AGENT_MODEL`, and `AGENT_API_KEY`. `AGENT_BASE_URL` can override the
 provider's OpenAI-compatible API base URL. Requests have a 20-second default
-timeout and 256 KiB response limit; there are no retries.
+timeout, 256 KiB response limit, 6,000-character memory limit, and
+24,000-character assembled context limit; there are no retries.
 
 The backend rebuilds a section-specific allowlist from either analysis shape. Persisted records are normalized from their stored risk, trigger, model, TLS, and certificate fields; no history endpoint transformation is required.
 It does not forward raw records, packet contents, email data, credentials,
-private keys, authorization headers, or unknown fields. The AI response is
-advisory: deterministic findings and the existing verdict remain authoritative,
-and the endpoint cannot execute remediation.
+private keys, authorization headers, or unknown fields. The AI identifies as
+`SecureMailScope Agent`, remains advisory/read-only, and cannot execute
+remediation.
+
+The first response explains the analysis and proposes one active verification
+step. Follow-ups such as `yes, start with step 1` keep the same step; the agent
+only advances after an explicit completion/result signal. Unrelated code
+requests receive a fixed out-of-scope response without a provider call.
+
+Memory is keyed by the analysis `request_id`. Only a bounded rolling summary,
+active step, facts, completed steps, pending questions, and safe evidence refs
+are stored; raw questions, full answers, prompts, and provider responses are
+not persisted.
 
 Provider misconfiguration, timeout, upstream errors, oversized/malformed
 responses, or invalid evidence return HTTP 200 with `status=degraded`,
 `answer=null`, empty recommendations/evidence, and a non-secret diagnostic code.
-No prompts or provider responses are persisted.
+A valid answer whose memory write fails remains `status=complete` with
+`memory_persisted=false` and a memory diagnostic. No prompts or provider
+responses are persisted.
 
 ## Current boundaries
 
