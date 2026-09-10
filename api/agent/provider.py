@@ -191,15 +191,18 @@ class OpenAICompatibleProvider:
 
     @staticmethod
     def _parse_advisory(content: Any) -> AgentAdvisory:
-        try:
-            if isinstance(content, str):
-                content = content.strip()
-                if content.startswith("```"):
-                    content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        if isinstance(content, str):
+            content = content.strip()
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            try:
                 content = json.loads(content)
+            except ValueError:
+                raise AgentProviderError("provider_invalid_json") from None
+        try:
             return AgentAdvisory.model_validate(content)
-        except (ValueError, TypeError, ValidationError):
-            raise AgentProviderError("provider_invalid_response") from None
+        except (TypeError, ValidationError):
+            raise AgentProviderError("provider_schema_mismatch") from None
 
 
 def create_agent_provider() -> AgentProvider | None:

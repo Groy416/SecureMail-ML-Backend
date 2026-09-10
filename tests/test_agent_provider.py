@@ -114,9 +114,23 @@ def test_provider_rejects_oversized_response():
         provider.generate("system", "user")
 
 
-def test_provider_rejects_invalid_advisory():
+def test_provider_rejects_invalid_advisory_json():
     provider = OpenAICompatibleProvider("openai", "model", "secret", "https://example.test/v1", 3, 1024, lambda *_args, **_kwargs: FakeResponse(b'{"choices":[{"message":{"content":"not-json"}}]}'))
-    with pytest.raises(AgentProviderError, match="provider_invalid_response"):
+    with pytest.raises(AgentProviderError, match="provider_invalid_json"):
+        provider.generate("system", "user")
+
+
+def test_provider_rejects_advisory_schema_mismatch():
+    provider = OpenAICompatibleProvider(
+        "openai",
+        "model",
+        "secret",
+        "https://example.test/v1",
+        3,
+        1024,
+        lambda *_args, **_kwargs: FakeResponse(completion_body({"answer": "ok", "memory_update": []})),
+    )
+    with pytest.raises(AgentProviderError, match="provider_schema_mismatch"):
         provider.generate("system", "user")
 
 
