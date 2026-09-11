@@ -18,13 +18,13 @@ uv run python -m ml.product --input sessions.jsonl --output results.jsonl
 uv run python scripts/evaluate_pcap_bundle.py
 ```
 
-Training reuses a validated `Dataset-17K` and never overwrites conflicting artifacts. The active bundle does not fit or persist Isolation Forest; old `models/grouped-105-capture-pcap` bundles remain readable when explicitly selected. Roundcap / live extractors must send **session feature JSON only**. This process does not accept PCAP uploads, mail bodies, or secrets.
+Training reuses a validated `Dataset-17K` and never overwrites conflicting artifacts. The active bundle does not fit or persist Isolation Forest; old `models/grouped-105-capture-pcap` bundles remain readable when explicitly selected. The standalone `ml.product` CLI accepts **session-feature JSONL only**; its privacy gate rejects known sensitive field names but is not a content scanner.
 
 `ml.product` returns `risk.class`, `action`, and `rule_findings`. Rules are authoritative; ML does not downgrade them. Authorized captures are evaluation/shadow data, not training data.
 
 ### API handoff
 
-A teammate should expose `ml.pipeline.predict_session(bundle, calibration, record)`. Construct and validate a `SessionFeatureRecord` from the passive session extractor, load `ModelBundle` with `ml.models.load_model_bundle(...)`, load calibration with `ml.calibration.load_calibration_state(...)`, and return the resulting `MLResult` JSON. Do not accept PCAP uploads without authorization controls; do not send email bodies, credentials, TLS key logs, or private keys to the API. Rules remain authoritative and ML must not downgrade rule severity. See [`docs/api.md`](docs/api.md) for the current HTTP contract, including authorized PCAP extraction.
+A teammate should expose `ml.pipeline.predict_session(bundle, calibration, record)`. Construct and validate a `SessionFeatureRecord` from the passive session extractor, load `ModelBundle` with `ml.models.load_model_bundle(...)`, load calibration with `ml.calibration.load_calibration_state(...)`, and return the resulting `MLResult` JSON. The HTTP API separately accepts bounded PCAP uploads for server-side extraction, while `POST /analyses` accepts one session-feature record rather than PCAP bytes. Capture authorization is an operational requirement and is not independently verified by the backend. Do not upload email bodies, credentials, TLS key logs, or private keys. Rules remain authoritative and ML must not downgrade rule severity. See [`docs/api.md`](docs/api.md) for the current HTTP contract, including authorized PCAP extraction.
 
 SecureMailScope ML is a Python library-first pipeline for passive email-network security assessment. It turns reconstructed SMTP/IMAP/POP3 session observations into:
 
@@ -42,9 +42,12 @@ The latest committed change, [`f6f1add`](https://github.com/Subham12R/SecureMail
 
 ## Security and product boundary
 
-This project is designed for authorized, passive analysis only.
+This project is designed for authorized, passive analysis only. The backend does not independently prove that an uploaded capture is authorized.
 
-- It does not read or store email bodies, subjects, attachments, passwords, cookies, tokens, or production credentials.
+- The scoring boundary accepts session-feature records and rejects known fields for message bodies, attachments, mail credentials, cookies, tokens, private keys, and TLS key logs. This is a field/schema gate, not content inspection or redaction.
+- The HTTP API also accepts bounded PCAP uploads for transient server-side extraction. TShark reads selected packet fields, including TCP payload bytes, to identify supported sessions and STARTTLS; raw PCAP bytes are not stored in Postgres and are removed after successful extraction or terminal failure (bounded retries may retain them temporarily).
+- The application auth endpoints separately collect login email addresses and passwords, store only password hashes, and issue bearer access tokens.
+- Optional AI insight requests forward the analyst’s question and bounded derived analysis context to the configured provider; raw analysis records are not forwarded by the context builder.
 - It must not block mail, change server configuration, or automatically remediate a finding.
 - The synthetic lab uses a private Docker network, synthetic names, and short-lived certificates.
 - Weak or legacy TLS scenarios must stay isolated. If a scenario cannot be negotiated by the lab crypto stack, it must be recorded as unsupported rather than represented as observed traffic.
@@ -76,7 +79,7 @@ uv sync
 uv run pytest
 ```
 
-The current automated suite collects 59 tests across 17 files. It covers calibration, evaluation, fusion, PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, training-label validation, runtime-profile behavior, handshake detection, product scoring, explanation fallback, and Docker-gated lab integration. POP3 runtime support is not yet covered by a dedicated integration test, and the suite does not yet cover every item in the specification’s test plan.
+The current automated suite collects 151 tests across 26 files. It covers calibration, evaluation, fusion, PCAP-mode dataset assembly, capture-hash/scenario-manifest persistence, split writing, run validation, training-label validation, runtime-profile behavior, handshake detection, product scoring, explanation fallback, and Docker-gated lab integration. POP3 runtime support is not yet covered by a dedicated integration test, and the suite does not yet cover every item in the specification’s test plan.
 
 For a concise result:
 
@@ -702,8 +705,9 @@ The older `datasets/lab/captures/synthetic_mail.pcap` fixture and its `mail-lab`
 `ml.pcap.extract_sessions` is a passive adapter. It:
 
 - selects a TCP dissector for SMTP, IMAP, or POP3;
-- reads packet fields with `tshark`;
+- reads selected packet fields with `tshark`, including `tcp.payload`;
 - groups packets by `tcp.stream`;
+- uses payload bytes in memory to identify STARTTLS, without placing raw payload values in the extracted record;
 - requires a client Finished message before marking a TLS handshake successful;
 - identifies STARTTLS and server handshake metadata from packet data;
 - maps known TLS/cipher/signature codes to canonical names;
@@ -718,7 +722,7 @@ The parser chooses a host `tshark` binary first. If none exists, it requires Doc
 docker build -t lab-mail-lab:latest datasets/lab
 ```
 
-A TLS key log is used when `tls.keys` is beside the PCAP. Certificate validity, chain validity, and hostname mismatch are populated only when both a trusted CA path and expected hostname are supplied; otherwise those fields remain null. The current runner uses `mail-core` as the expected hostname. Unknown TLS values are represented as `UNKNOWN`, not silently guessed.
+If `tls.keys` is beside the PCAP, the parser configures TShark to use it. This is a local lab/parser input, not session-feature data, and it means the PCAP path is not key-log-free; key logs must never be sent to `POST /analyses`. Certificate validity, chain validity, and hostname mismatch are populated only when both a trusted CA path and expected hostname are supplied; otherwise those fields remain null. The current runner uses `mail-core` as the expected hostname. Unknown TLS values are represented as `UNKNOWN`, not silently guessed.
 
 For the latest profile-driven path, use the runner handoff instead of hard-coding the old capture ports:
 
@@ -742,7 +746,7 @@ if run.status != "success":
 records = extract_run(run)
 ```
 
-The adapter labels extracted rows as `synthetic_pcap` and does not create an `authorized_capture` dataset. It still has limited packet-derived handling for retries and renegotiations; the profile runner is single-scenario, and the legacy-compatible service/full training matrix are future work.
+The profile-driven lab labels extracted rows as `synthetic_pcap`. The API worker uses `extract_authorized_capture` for caller-supplied captures and labels those rows `authorized_capture`; that source label is not independent proof of authorization. The adapter still has limited packet-derived handling for retries and renegotiations; the profile runner is single-scenario, and the legacy-compatible service/full training matrix are future work.
 
 ## Git initialization and repository hygiene
 
@@ -791,7 +795,7 @@ The following specification items are deliberately not described as complete:
 5. The model bundle omits `policy_version.json` and `metrics.json`; its manifest is smaller than the target artifact contract and does not enforce dependency-version compatibility.
 6. Evaluation does not yet include a per-scenario/family breakdown or calibration curves, and learned stacking is intentionally disabled.
 7. Explanations do not repeat every model/preprocessor/explanation-library version on each entry.
-8. The repository currently collects 51 focused pytest tests across 15 files, not the complete schema/dataset/preprocessing/model/policy/explainability/end-to-end matrix listed in the spec. Docker-gated integration tests may skip without a Docker daemon.
+8. The repository currently collects 151 pytest tests across 26 files, not the complete schema/dataset/preprocessing/model/policy/explainability/end-to-end matrix listed in the spec. Docker-gated integration tests may skip without a Docker daemon.
 
 These gaps are important boundaries: do not present the current lab capture or checked-in metrics as evidence that the full target system has been delivered.
 
